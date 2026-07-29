@@ -1,0 +1,40 @@
+.your-details-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.your-details-form__heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #111;
+}
+
+.your-details-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.your-details-form__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.your-details-form__input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+.your-details-form__input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}

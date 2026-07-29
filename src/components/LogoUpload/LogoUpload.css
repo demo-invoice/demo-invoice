@@ -1,0 +1,62 @@
+.logo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* Hide the native file input visually but keep it accessible */
+.logo-upload__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.logo-upload__button {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #0066cc;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.logo-upload__button:hover,
+.logo-upload__button:focus-within {
+  background-color: #0052a3;
+}
+
+.logo-upload__remove {
+  padding: 6px 14px;
+  background-color: transparent;
+  color: #cc0000;
+  border: 1px solid #cc0000;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.logo-upload__remove:hover,
+.logo-upload__remove:focus {
+  background-color: #cc0000;
+  color: #fff;
+}
+
+.logo-upload__error {
+  display: block;
+  color: #cc0000;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
