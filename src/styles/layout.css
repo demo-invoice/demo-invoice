@@ -1,0 +1,122 @@
+/*
+ * layout.css
+ * Per-container overflow-x:hidden rules and sticky bottom button padding.
+ * T16 lessons applied.
+ */
+
+.invoice-form-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1rem 5rem; /* padding-bottom = sticky bar height so last field is reachable */
+  overflow-x: hidden;      /* per-container guard (T16) */
+}
+
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.form-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.meta-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.meta-row .field-group {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.parties-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .parties-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Table scroll wrapper — prevents wide tables from breaking mobile layout (T16) */
+.table-scroll {
+  overflow-x: auto;   /* horizontal scroll within the container, not the page */
+  -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS */
+  max-width: 100%;
+}
+
+.line-items-table {
+  width: 100%;
+  min-width: 520px;   /* ensures columns don't collapse below readable width */
+  border-collapse: collapse;
+}
+
+.line-items-table th,
+.line-items-table td {
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.line-items-table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.line-items-wrapper {
+  overflow-x: hidden;
+}
+
+.tax-summary {
+  max-width: 360px;
+  margin-left: auto;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.total-label { font-size: 1.1rem; }
+.total-value { font-size: 1.1rem; font-weight: 700; }
+
+.logo-upload {
+  display: flex;
+  flex-direction: column;
+  max-width: 320px;
+}
+
+/*
+ * Sticky action bar — fixed to bottom of viewport.
+ * padding-bottom on .invoice-form-container (5rem) prevents the last
+ * form field from being obscured by this bar on mobile (T16).
+ */
+.sticky-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  z-index: 100;
+  /* Safe area inset for iOS home indicator */
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
