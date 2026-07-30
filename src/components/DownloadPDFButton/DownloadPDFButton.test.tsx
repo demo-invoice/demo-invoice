@@ -25,4 +25,23 @@ describe('DownloadPDFButton', () => {
     expect(printSpy).not.toHaveBeenCalled();
     printSpy.mockRestore();
   });
+
+  it('renders the outer bar wrapper element', () => {
+    const { container } = render(<DownloadPDFButton />);
+    const bar = container.querySelector('.download-pdf-bar');
+    expect(bar).toBeInTheDocument();
+  });
+
+  it('renders the button inside the bar wrapper', () => {
+    const { container } = render(<DownloadPDFButton />);
+    const bar = container.querySelector('.download-pdf-bar');
+    const btn = bar?.querySelector('.download-pdf-btn');
+    expect(btn).toBeInTheDocument();
+  });
+
+  it('button has type="button" to avoid accidental form submission', () => {
+    render(<DownloadPDFButton />);
+    const btn = screen.getByRole('button', { name: /download pdf/i });
+    expect(btn).toHaveAttribute('type', 'button');
+  });
 });
