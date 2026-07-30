@@ -1,4 +1,3 @@
-import React from 'react';
 import { useInvoice } from '../context/InvoiceContext';
 
 /** Formats a number as USD currency. Same formatter used for both screen and print (same DOM node). */
@@ -33,24 +32,23 @@ export function InvoicePreview() {
           />
         )}
         <div className="invoice-preview__meta">
-          <h1 className="invoice-preview__title">INVOICE</h1>
-          {invoiceNumber && <p><strong>Invoice #:</strong> {invoiceNumber}</p>}
-          {issueDate && <p><strong>Issue Date:</strong> {issueDate}</p>}
-          {dueDate && <p><strong>Due Date:</strong> {dueDate}</p>}
+          <h1 className="invoice-preview__number">Invoice {invoiceNumber}</h1>
+          {issueDate && <p>Issue Date: {issueDate}</p>}
+          {dueDate && <p>Due Date: {dueDate}</p>}
         </div>
       </header>
 
-      {/* Sender + Client */}
+      {/* Sender / Client */}
       <div className="invoice-preview__parties">
-        <div className="invoice-preview__party">
+        <div className="invoice-preview__sender">
           <h2>From</h2>
-          <p>{sender.name || <em>—</em>}</p>
+          <p>{sender.name}</p>
           <p>{sender.email}</p>
           <p style={{ whiteSpace: 'pre-line' }}>{sender.address}</p>
         </div>
-        <div className="invoice-preview__party">
+        <div className="invoice-preview__client">
           <h2>Bill To</h2>
-          <p>{client.name || <em>—</em>}</p>
+          <p>{client.name}</p>
           <p>{client.email}</p>
           <p style={{ whiteSpace: 'pre-line' }}>{client.address}</p>
         </div>
@@ -69,7 +67,7 @@ export function InvoicePreview() {
         <tbody>
           {lineItems.map((item) => (
             <tr key={item.id}>
-              <td>{item.description || <em>—</em>}</td>
+              <td>{item.description}</td>
               <td>{item.quantity}</td>
               <td>{formatCurrency(item.unitPrice)}</td>
               <td>{formatCurrency(item.quantity * item.unitPrice)}</td>
@@ -97,7 +95,7 @@ export function InvoicePreview() {
       {/* Notes */}
       {notes && (
         <div className="invoice-preview__notes">
-          <h3>Notes</h3>
+          <h2>Notes</h2>
           <p style={{ whiteSpace: 'pre-line' }}>{notes}</p>
         </div>
       )}
