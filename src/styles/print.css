@@ -1,0 +1,129 @@
+/*
+ * print.css — Browser print fallback stylesheet
+ *
+ * ALL rules in this file are strictly scoped inside @media print.
+ * There is zero bleed into screen styles.
+ *
+ * Usage:
+ *   Import this file once at your app entry point, e.g.:
+ *     import '../styles/print.css';
+ *
+ * TODO (T14): Verify that the InvoicePreview component (T7) uses the class
+ *   `.invoice-preview` on its root element before merging. If a different
+ *   class or ID is used, update the selectors below accordingly so that the
+ *   print panel is correctly isolated and all other UI chrome is hidden.
+ */
+
+@media print {
+  /* =========================================================
+   * 1. PAGE SETUP
+   * Explicit A4 size + 1 cm margins for clean output.
+   * Prevents US Letter default on some systems.
+   * ========================================================= */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* =========================================================
+   * 2. HIDE UI CHROME
+   * Hides all interactive / navigational elements that have
+   * no place on a printed invoice.
+   * ========================================================= */
+
+  /* Semantic structural elements */
+  header,
+  nav {
+    display: none !important;
+  }
+
+  /* Common React invoice-app header class */
+  .app-header {
+    display: none !important;
+  }
+
+  /* The form / editor panel (T-series invoice form) */
+  .invoice-form {
+    display: none !important;
+  }
+
+  /* All action buttons — including any inside .invoice-preview
+   * (e.g. "Download PDF", "Edit") that must not appear on paper */
+  button,
+  .btn {
+    display: none !important;
+  }
+
+  /* Generic utility class: add .no-print to any element that
+   * should be suppressed in print mode without touching this file */
+  .no-print {
+    display: none !important;
+  }
+
+  /* =========================================================
+   * 3. INVOICE PREVIEW PANEL
+   *
+   * TODO: Confirm `.invoice-preview` matches the root class of
+   *   the InvoicePreview component from T7 before merging.
+   * ========================================================= */
+
+  .invoice-preview {
+    /* Let the preview fill the full printable area */
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+
+    /* Remove card chrome that looks wrong on paper */
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+
+    /* Preserve colored table headers, status badges, etc.
+     * Browsers strip backgrounds by default — these properties
+     * opt the element back in to color printing. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Catch any nested elements that also carry a box-shadow
+   * (e.g. sub-cards, highlighted rows, framework utility classes) */
+  .invoice-preview * {
+    box-shadow: none !important;
+  }
+
+  /* =========================================================
+   * 4. LINE-ITEMS TABLE — PAGE-BREAK CONTROL
+   *
+   * Prevents a table row from being split across two pages.
+   * Both legacy (page-break-inside) and modern (break-inside)
+   * properties are set for maximum browser compatibility.
+   *
+   * Edge case — very tall rows: applying the same rule to td
+   * provides an additional hint for browsers that evaluate
+   * break opportunities at the cell level rather than the row
+   * level, mitigating awkward mid-cell breaks on multi-line
+   * description cells.
+   * ========================================================= */
+
+  .invoice-preview tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .invoice-preview td {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Keep the table header row visible at the top of each page
+   * if the line-items table spans multiple pages */
+  .invoice-preview thead {
+    display: table-header-group;
+  }
+
+  /* Prevent an orphaned footer row at the bottom of a page */
+  .invoice-preview tfoot {
+    display: table-footer-group;
+  }
+}
