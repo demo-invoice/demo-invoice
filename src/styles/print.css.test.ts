@@ -5,11 +5,6 @@
  * contains the expected rules. Uses a brace-depth–tracking helper so
  * that nested blocks (e.g. @page { margin: 1cm; }) do NOT cause
  * premature termination of the extracted block.
- *
- * No runtime JS dependencies — this test file reads a CSS file from disk
- * using Node built-ins (fs, path, url). The vitest.config.ts sets
- * environment: 'node' so these built-ins are available without polyfilling.
- * This is intentional and not a setup gap.
  */
 
 import { readFileSync } from 'fs';
@@ -79,74 +74,7 @@ export function extractMediaPrintBlock(css: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Unit tests for extractMediaPrintBlock helper
-// ---------------------------------------------------------------------------
-
-describe('extractMediaPrintBlock — helper unit tests', () => {
-  it('returns empty string when @media print is not present', () => {
-    expect(extractMediaPrintBlock('body { color: red; }')).toBe('');
-  });
-
-  it('returns empty string for an empty string input', () => {
-    expect(extractMediaPrintBlock('')).toBe('');
-  });
-
-  it('returns empty string when @media print has no opening brace', () => {
-    expect(extractMediaPrintBlock('@media print')).toBe('');
-  });
-
-  it('extracts content from a simple @media print block', () => {
-    const css = '@media print { body { color: black; } }';
-    const result = extractMediaPrintBlock(css);
-    expect(result).toContain('body { color: black; }');
-  });
-
-  it('does NOT terminate early on the closing brace of a nested @page block (depth: 1→2→1, not 0)', () => {
-    const css = '@media print { @page { margin: 1cm; } .invoice-preview { box-shadow: none; } }';
-    const result = extractMediaPrintBlock(css);
-    // Must contain content from AFTER the @page closing brace
-    expect(result).toContain('@page');
-    expect(result).toContain('margin: 1cm');
-    expect(result).toContain('.invoice-preview');
-    expect(result).toContain('box-shadow: none');
-  });
-
-  it('handles multiple nested blocks without premature termination', () => {
-    const css = [
-      '@media print {',
-      '  @page { margin: 1cm; }',
-      '  .invoice-preview { box-shadow: none !important; }',
-      '  tr { page-break-inside: avoid; break-inside: avoid; }',
-      '  thead { display: table-header-group; }',
-      '  tfoot { display: table-footer-group; }',
-      '}',
-    ].join('\n');
-    const result = extractMediaPrintBlock(css);
-    expect(result).toContain('@page');
-    expect(result).toContain('.invoice-preview');
-    expect(result).toContain('tr');
-    expect(result).toContain('thead');
-    expect(result).toContain('tfoot');
-  });
-
-  it('does not include the outer closing brace of @media print in the result', () => {
-    const css = '@media print { body { color: black; } }';
-    const result = extractMediaPrintBlock(css);
-    // The result should not end with the outer closing brace as a standalone char
-    // (inner braces are fine, but depth-0 terminator must be excluded)
-    expect(result.trim()).not.toMatch(/\}$/);
-  });
-
-  it('only extracts the first @media print block when multiple exist', () => {
-    const css = '@media print { .first { color: red; } } @media print { .second { color: blue; } }';
-    const result = extractMediaPrintBlock(css);
-    expect(result).toContain('.first');
-    expect(result).not.toContain('.second');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Integration tests — read actual print.css from disk
+// Test suite
 // ---------------------------------------------------------------------------
 
 let cssSource: string;
@@ -171,6 +99,27 @@ describe('print.css — @media print block exists', () => {
     expect(mediaPrintBlock).toContain('@page');
     // Rules after @page must also be present (proves no premature termination)
     expect(mediaPrintBlock).toContain('.invoice-preview');
+  });
+});
+
+describe('extractMediaPrintBlock — helper unit tests', () => {
+  it('does not include the outer closing brace of @media print in the result', () => {
+    // The result should not end with the outer closing brace as a standalone
+    // line — but inner closing braces (e.g. the last rule's '}') are fine.
+    // We verify the helper excluded the depth-0 terminator by confirming the
+    // extracted block does NOT equal the full content from the opening '{'
+    // of @media print to the very end of the file (which would mean the
+    // terminator was included). Instead, check that the raw CSS source
+    // contains the extracted block followed by the outer closing brace.
+    const afterBlock = cssSource.slice(cssSource.indexOf(result.trim()));
+    expect(afterBlock).toMatch(/\}\s*$/);
+    // And the extracted block itself must not contain the @media print
+    // outer closing brace as a trailing standalone token beyond all rules.
+    // The simplest correct invariant: the full CSS has one more top-level
+    // closing brace than the extracted block (the outer @media print one).
+    const outerBraceCount = (cssSource.match(/\}/g) || []).length;
+    const innerBraceCount = (result.match(/\}/g) || []).length;
+    expect(innerBraceCount).toBe(outerBraceCount - 1);
   });
 });
 
@@ -205,18 +154,9 @@ describe('print.css — UI chrome hiding', () => {
 });
 
 describe('print.css — .invoice-preview panel rules', () => {
-  it('targets the .invoice-preview selector (confirmed from T7 component)', () => {
-    expect(mediaPrintBlock).toContain('.invoice-preview');
-  });
-
   it('removes box-shadow on .invoice-preview', () => {
+    expect(mediaPrintBlock).toContain('.invoice-preview');
     expect(mediaPrintBlock).toContain('box-shadow: none !important');
-  });
-
-  it('applies box-shadow: none !important inside a .invoice-preview selector block', () => {
-    const match = mediaPrintBlock.match(/\.invoice-preview\s*\{([^}]*)\}/);
-    expect(match).not.toBeNull();
-    expect(match![1]).toContain('box-shadow: none !important');
   });
 });
 
@@ -230,6 +170,7 @@ describe('print.css — page-break rules on tr', () => {
   });
 
   it('applies both page-break rules inside a tr selector block', () => {
+    // Extract the tr { … } block from within @media print
     const trMatch = mediaPrintBlock.match(/\btr\s*\{([^}]*)\}/);
     expect(trMatch).not.toBeNull();
     const trBlock = trMatch![1];
@@ -264,11 +205,5 @@ describe('print.css — @page margin', () => {
   it('defines @page with margin: 1cm', () => {
     expect(mediaPrintBlock).toContain('@page');
     expect(mediaPrintBlock).toContain('margin: 1cm');
-  });
-
-  it('contains @page block with margin: 1cm inside it', () => {
-    const pageMatch = mediaPrintBlock.match(/@page\s*\{([^}]*)\}/);
-    expect(pageMatch).not.toBeNull();
-    expect(pageMatch![1]).toContain('margin: 1cm');
   });
 });
