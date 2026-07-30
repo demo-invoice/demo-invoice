@@ -1,0 +1,22 @@
+/* App-level layout */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__content {
+  display: flex;
+  flex: 1;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+/* AC #6: reserve space for the fixed sticky bar on mobile */
+@media (max-width: 767px) {
+  .app__content {
+    flex-direction: column;
+    padding: 1rem;
+    padding-bottom: var(--sticky-btn-height, 60px);
+  }
+}

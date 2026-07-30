@@ -1,0 +1,19 @@
+/* AC #8 + AC #6: global overflow guard and CSS variable single source of truth */
+:root {
+  --sticky-btn-height: 60px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, sans-serif;
+}
