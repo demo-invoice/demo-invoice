@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, Dispatch, ReactNode, createElement } from 'react';
 import { createDefaultState, InvoiceState } from '../../constants/invoice';
 
 export const INVOICE_STORAGE_KEY = 'invoice-data';
@@ -69,9 +69,9 @@ function loadState(): StateWithMeta {
 }
 
 const InvoiceStateContext = createContext<StateWithMeta | undefined>(undefined);
-const InvoiceDispatchContext = createContext<React.Dispatch<Action> | undefined>(undefined);
+const InvoiceDispatchContext = createContext<Dispatch<Action> | undefined>(undefined);
 
-export function InvoiceProvider({ children }: { children: React.ReactNode }) {
+export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, undefined, loadState);
 
   useEffect(() => {
@@ -85,10 +85,10 @@ export function InvoiceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
-  return React.createElement(
+  return createElement(
     InvoiceStateContext.Provider,
     { value: state },
-    React.createElement(
+    createElement(
       InvoiceDispatchContext.Provider,
       { value: dispatch },
       children
@@ -102,7 +102,7 @@ export function useInvoiceState(): StateWithMeta {
   return ctx;
 }
 
-export function useInvoiceDispatch(): React.Dispatch<Action> {
+export function useInvoiceDispatch(): Dispatch<Action> {
   const ctx = useContext(InvoiceDispatchContext);
   if (!ctx) throw new Error('useInvoiceDispatch must be used within InvoiceProvider');
   return ctx;
