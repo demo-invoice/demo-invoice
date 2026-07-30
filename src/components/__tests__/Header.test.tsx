@@ -1,27 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Header } from '../Header';
-import { InvoiceProvider, useInvoice } from '../../context/InvoiceContext';
+import { InvoiceProvider } from '../../context/InvoiceContext';
 import { INVOICE_STORAGE_KEY, createDefaultState } from '../../constants/invoice';
 import type { InvoiceState } from '../../types/invoice';
-
-/**
- * Spy on dispatch so we can assert it was called with RESET_INVOICE.
- * We wrap Header in a provider and capture dispatch via a sibling consumer.
- */
-let capturedDispatch: ReturnType<typeof useInvoice>['dispatch'] | null = null;
-
-function DispatchCapture() {
-  const { dispatch } = useInvoice();
-  capturedDispatch = dispatch;
-  return null;
-}
 
 function renderHeader() {
   return render(
     <InvoiceProvider>
-      <DispatchCapture />
       <Header />
     </InvoiceProvider>,
   );
@@ -30,16 +17,35 @@ function renderHeader() {
 describe('Header', () => {
   beforeEach(() => {
     localStorage.clear();
-    capturedDispatch = null;
     vi.restoreAllMocks();
   });
+
+  // -------------------------------------------------------------------------
+  // Rendering
+  // -------------------------------------------------------------------------
 
   it('renders the New Invoice button', () => {
     renderHeader();
     expect(screen.getByRole('button', { name: /new invoice/i })).toBeInTheDocument();
   });
 
-  it('shows confirm dialog with the correct message on button click', async () => {
+  it('renders the app title "Invoice App"', () => {
+    renderHeader();
+    expect(screen.getByText('Invoice App')).toBeInTheDocument();
+  });
+
+  it('New Invoice button has aria-label "Start a new invoice"', () => {
+    renderHeader();
+    expect(
+      screen.getByRole('button', { name: 'Start a new invoice' }),
+    ).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Confirm dialog
+  // -------------------------------------------------------------------------
+
+  it('calls window.confirm with the exact message on button click', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderHeader();
     await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
@@ -49,47 +55,72 @@ describe('Header', () => {
     );
   });
 
-  it('does NOT call removeItem or dispatch when user cancels', async () => {
+  // -------------------------------------------------------------------------
+  // Cancel path — zero side effects
+  // -------------------------------------------------------------------------
+
+  it('does NOT call localStorage.removeItem when user cancels', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const removeSpy = vi.spyOn(Storage.prototype, 'removeItem');
-    const dispatchSpy = vi.fn();
-
-    // Pre-populate localStorage.
-    const saved: InvoiceState = { ...createDefaultState(), invoiceNumber: 'INV-KEEP', _lastAction: '' };
-    localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(saved));
-
     renderHeader();
     await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
-
     expect(removeSpy).not.toHaveBeenCalled();
-    // localStorage key should still be present.
-    expect(localStorage.getItem(INVOICE_STORAGE_KEY)).not.toBeNull();
-    void dispatchSpy; // unused but satisfies linter
   });
 
-  it('calls removeItem exactly once with the correct key when user confirms', async () => {
+  it('preserves localStorage data when user cancels', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const saved: InvoiceState = { ...createDefaultState(), invoiceNumber: 'INV-KEEP', _lastAction: '' };
+    localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(saved));
+    renderHeader();
+    await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
+    expect(localStorage.getItem(INVOICE_STORAGE_KEY)).not.toBeNull();
+    const parsed = JSON.parse(localStorage.getItem(INVOICE_STORAGE_KEY)!) as InvoiceState;
+    expect(parsed.invoiceNumber).toBe('INV-KEEP');
+  });
+
+  // -------------------------------------------------------------------------
+  // Confirm path — removeItem called exactly once, then RESET_INVOICE
+  // -------------------------------------------------------------------------
+
+  it('calls localStorage.removeItem exactly once with INVOICE_STORAGE_KEY when user confirms', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const removeSpy = vi.spyOn(Storage.prototype, 'removeItem');
     renderHeader();
-    await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
+    });
     const invoiceRemoveCalls = removeSpy.mock.calls.filter(
       ([key]) => key === INVOICE_STORAGE_KEY,
     );
     expect(invoiceRemoveCalls).toHaveLength(1);
   });
 
-  it('dispatches RESET_INVOICE when user confirms', async () => {
+  it('localStorage key is absent after user confirms (RESET_INVOICE dispatched, setItem skipped)', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const saved: InvoiceState = { ...createDefaultState(), invoiceNumber: 'INV-OLD', _lastAction: '' };
+    localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(saved));
     renderHeader();
-    // Spy on the real dispatch after capture.
-    const dispatchSpy = vi.fn();
-    if (capturedDispatch) {
-      // Replace captured dispatch reference on the context is not straightforward;
-      // instead we verify the effect: localStorage key is absent after confirm.
-      void dispatchSpy;
-    }
-    await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
-    // After confirm + dispatch, localStorage key must be absent.
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
+    });
     expect(localStorage.getItem(INVOICE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('removeItem is called before (or without) any subsequent setItem on confirm', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const callOrder: string[] = [];
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (key: string) {
+      if (key === INVOICE_STORAGE_KEY) callOrder.push('removeItem');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string) {
+      if (key === INVOICE_STORAGE_KEY) callOrder.push('setItem');
+    });
+    renderHeader();
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: /new invoice/i }));
+    });
+    // removeItem must appear exactly once; setItem must NOT appear after reset.
+    expect(callOrder.filter((c) => c === 'removeItem')).toHaveLength(1);
+    expect(callOrder.filter((c) => c === 'setItem')).toHaveLength(0);
   });
 });
