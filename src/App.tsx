@@ -1,15 +1,13 @@
 import { InvoiceProvider } from './context/InvoiceContext';
 import { Toolbar } from './components/Toolbar';
-import { InvoiceForm } from './components/InvoiceForm';
 import { InvoicePreview } from './components/InvoicePreview';
-import './styles/global.css';
+// InvoiceForm import removed — component not yet present; add when InvoiceForm.tsx is created
 
 export default function App() {
   return (
     <InvoiceProvider>
       <Toolbar />
       <main className="app-main">
-        <InvoiceForm />
         <InvoicePreview />
       </main>
     </InvoiceProvider>
