@@ -1,28 +1,26 @@
 /**
  * InvoiceForm styles.
- *
- * Colour contrast (all on #ffffff background):
- *   Text labels:    #111827  ~18.1:1  ✓ AA
- *   Input text:     #111827  ~18.1:1  ✓ AA
- *   Error text:     #b91c1c  ~5.9:1   ✓ AA
- *   Primary button: #1d4ed8  ~5.9:1   ✓ AA (white text on blue)
- *   Border:         #6b7280  ~3.9:1   ✓ AA (UI component ≥3:1)
- *   Focus ring:     #005fcc  ~6.5:1   ✓ AA
+ * Text: #111827 on #ffffff — ~18.1:1 (exceeds 4.5:1 AA).
  */
 .form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  max-width: 900px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: var(--space-8);
+  padding: var(--space-6);
   background-color: var(--color-bg);
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-6);
 }
 
 .fieldGroup {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .field {
@@ -51,31 +49,7 @@
   outline-offset: 2px;
 }
 
-.input[aria-invalid='true'] {
-  border-color: var(--color-error);
-}
-
-.errorSummary {
-  padding: var(--space-4);
-  background-color: #fef2f2;
-  border: 1.5px solid var(--color-error);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-}
-
-.errorSummary:focus {
-  outline: 3px solid var(--color-focus-ring);
-  outline-offset: 2px;
-}
-
-.errorSummary ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-4);
-}
-
 .submitButton {
-  align-self: flex-start;
   padding: var(--space-3) var(--space-6);
   font-size: var(--font-size-base);
   font-weight: 600;
@@ -89,8 +63,4 @@
 .submitButton:focus-visible {
   outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
-}
-
-.submitButton:hover {
-  background-color: #1e40af;
 }
