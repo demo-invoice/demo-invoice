@@ -1,37 +1,32 @@
 import './App.css';
+import { InvoiceProvider } from './context/InvoiceContext';
 import { InvoiceForm } from './components/InvoiceForm/InvoiceForm';
+import { LineItemsTable } from './components/LineItemsTable/LineItemsTable';
 import { PreviewPanel } from './components/PreviewPanel/PreviewPanel';
 import { DownloadPDFButton } from './components/DownloadPDFButton/DownloadPDFButton';
 
 /**
- * Root layout component.
- *
- * Desktop (≥768 px): two-column flex row — form on the left, preview on the right.
- * Mobile (<768 px):  single-column flex column — form stacked above preview.
- *
- * `.app-content` receives `padding-bottom: var(--sticky-btn-height)` on mobile
- * so the fixed DownloadPDFButton never overlaps scrollable content.
+ * Root application component.
+ * Wraps everything in InvoiceProvider so all children share invoice state.
+ * Desktop: two-column layout with inline DownloadPDFButton.
+ * Mobile: single-column layout with sticky DownloadPDFButton bar.
  */
 export function App(): JSX.Element {
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <h1 className="app-title">Invoice Generator</h1>
-      </header>
-
-      <main className="app-content">
-        <div className="app-columns">
-          <section className="app-col app-col--form" aria-label="Invoice form">
+    <InvoiceProvider>
+      <div className="app">
+        <div className="app__content">
+          <section className="app__form-panel">
             <InvoiceForm />
+            <LineItemsTable />
+            {/* Desktop-only inline button — hidden on mobile via CSS */}
+            <DownloadPDFButton />
           </section>
-
-          <section className="app-col app-col--preview" aria-label="Invoice preview">
+          <section className="app__preview-panel">
             <PreviewPanel />
           </section>
         </div>
-      </main>
-
-      <DownloadPDFButton />
-    </div>
+      </div>
+    </InvoiceProvider>
   );
 }

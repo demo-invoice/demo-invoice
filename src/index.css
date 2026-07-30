@@ -1,45 +1,19 @@
-/* -----------------------------------------------------------------------
-   Base reset — applied globally before any component styles.
-   Horizontal scroll prevention must live here so it covers ALL viewports.
------------------------------------------------------------------------ */
-
+/* AC #8 + AC #6: global overflow guard and CSS variable single source of truth */
 :root {
   --sticky-btn-height: 60px;
-  --color-primary: #2563eb;
-  --color-primary-dark: #1d4ed8;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #1e293b;
-  --color-text-muted: #64748b;
-  --radius: 6px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-/* Prevent horizontal scroll at every viewport width, including 375 px.
-   Must be set on BOTH html AND body — a single missed ancestor reintroduces scroll. */
 html,
 body {
   overflow-x: hidden;
   max-width: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    sans-serif;
-  font-size: 16px;
-  color: var(--color-text);
-  background: #f8fafc;
-  line-height: 1.5;
-}
-
-#root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, sans-serif;
 }

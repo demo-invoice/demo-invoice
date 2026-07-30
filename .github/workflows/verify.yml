@@ -7,21 +7,16 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          # Fallback so a cache miss on first run (no lockfile yet) doesn't fail the job
-          cache-dependency-path: '**/package.json'
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package.json
 
       - name: Install dependencies
-        # Use npm install (not npm install) — greenfield repo has no committed
-        # package-lock.json; npm install hard-fails without a matching lockfile.
         run: npm install
 
       - name: Type-check

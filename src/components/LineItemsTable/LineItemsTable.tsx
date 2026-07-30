@@ -2,7 +2,7 @@ import './LineItemsTable.css';
 import { useInvoice } from '../../context/InvoiceContext';
 import type { LineItem } from '../../context/InvoiceContext';
 
-/** Format a number as USD currency string. */
+/** Formats a number as USD currency string. */
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -10,176 +10,76 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-/** Calculate the line total for a single item. */
-function lineTotal(item: LineItem): number {
-  return item.quantity * item.unitPrice;
-}
-
 /**
- * LineItemsTable
+ * Renders the invoice line items as a responsive table.
  *
- * Renders invoice line items as a `<table>` on desktop.
- * On mobile (via CSS) each `<tr>` collapses into a card:
- * - `<thead>` is hidden
- * - description spans the full card width
- * - qty / price / amount appear in a flex sub-row
- * - `data-label` attributes + CSS `::before` provide accessible column labels
+ * Mobile card layout (AC #4):
+ * - Each line item occupies two rows:
+ *   1. A description row spanning all columns.
+ *   2. A sub-row (<tr class="line-item-sub-row-tr">) with a single
+ *      <td colspan="4"> containing a flex div for Qty / Unit Price / Amount.
+ *      This keeps valid HTML table structure while enabling the flex sub-row.
  */
 export function LineItemsTable(): JSX.Element {
-  const { state, dispatch } = useInvoice();
-
-  const subtotal = state.lineItems.reduce(
-    (sum, item) => sum + lineTotal(item),
-    0,
-  );
+  const { state } = useInvoice();
 
   return (
     <div className="line-items-wrapper">
+      <h2 className="line-items__title">Line Items</h2>
       <table className="line-items-table">
-        <thead className="line-items-table__head">
+        <thead>
           <tr>
-            <th scope="col" className="line-items-table__th line-items-table__th--desc">
-              Description
-            </th>
-            <th scope="col" className="line-items-table__th line-items-table__th--num">
-              Qty
-            </th>
-            <th scope="col" className="line-items-table__th line-items-table__th--num">
-              Unit Price
-            </th>
-            <th scope="col" className="line-items-table__th line-items-table__th--num">
-              Amount
-            </th>
-            <th scope="col" className="line-items-table__th line-items-table__th--action">
-              <span className="sr-only">Remove</span>
-            </th>
+            <th className="line-items-table__th">Description</th>
+            <th className="line-items-table__th">Qty</th>
+            <th className="line-items-table__th">Unit Price</th>
+            <th className="line-items-table__th">Amount</th>
           </tr>
         </thead>
-
         <tbody>
-          {state.lineItems.map((item) => (
-            <tr key={item.id} className="line-items-table__row">
-              {/* Description — full width on mobile card */}
-              <td
-                className="line-items-table__td line-items-table__td--desc"
-                data-label="Description"
-              >
-                <input
-                  type="text"
-                  className="line-items-table__input"
-                  value={item.description}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_LINE_ITEM',
-                      payload: { id: item.id, field: 'description', value: e.target.value },
-                    })
-                  }
-                  placeholder="Item description"
-                  aria-label="Description"
-                />
-              </td>
-
-              {/* Sub-row wrapper: qty / price / amount rendered side-by-side on mobile */}
-              <td
-                className="line-items-table__td line-items-table__td--num"
-                data-label="Qty"
-              >
-                <input
-                  type="number"
-                  className="line-items-table__input line-items-table__input--num"
-                  value={item.quantity}
-                  min={0}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_LINE_ITEM',
-                      payload: {
-                        id: item.id,
-                        field: 'quantity',
-                        value: parseFloat(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  aria-label="Quantity"
-                />
-              </td>
-
-              <td
-                className="line-items-table__td line-items-table__td--num"
-                data-label="Unit Price"
-              >
-                <input
-                  type="number"
-                  className="line-items-table__input line-items-table__input--num"
-                  value={item.unitPrice}
-                  min={0}
-                  step={0.01}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_LINE_ITEM',
-                      payload: {
-                        id: item.id,
-                        field: 'unitPrice',
-                        value: parseFloat(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  aria-label="Unit price"
-                />
-              </td>
-
-              <td
-                className="line-items-table__td line-items-table__td--num line-items-table__td--amount"
-                data-label="Amount"
-              >
-                {formatCurrency(lineTotal(item))}
-              </td>
-
-              <td className="line-items-table__td line-items-table__td--action">
-                <button
-                  type="button"
-                  className="line-items-table__remove-btn"
-                  onClick={() =>
-                    dispatch({ type: 'REMOVE_LINE_ITEM', payload: item.id })
-                  }
-                  aria-label={`Remove line item: ${item.description || 'unnamed'}`}
-                  disabled={state.lineItems.length === 1}
-                >
-                  &times;
-                </button>
+          {state.lineItems.length === 0 && (
+            <tr>
+              <td className="line-items-table__empty" colSpan={4}>
+                No line items yet.
               </td>
             </tr>
+          )}
+          {state.lineItems.map((item: LineItem) => (
+            <>
+              {/* Description row */}
+              <tr key={`${item.id}-desc`} className="line-item-row">
+                <td
+                  className="line-items-table__td"
+                  colSpan={4}
+                  data-label="Description"
+                >
+                  {item.description}
+                </td>
+              </tr>
+              {/* AC #4: numeric sub-row — valid HTML: single td with flex div inside */}
+              <tr
+                key={`${item.id}-nums`}
+                className="line-item-sub-row-tr"
+              >
+                <td colSpan={4} className="line-items-table__td line-items-table__td--sub">
+                  <div className="line-item-sub-row">
+                    <span className="line-item-sub-row__cell">
+                      <span className="line-item-sub-row__label">Qty</span>
+                      {item.qty}
+                    </span>
+                    <span className="line-item-sub-row__cell">
+                      <span className="line-item-sub-row__label">Unit Price</span>
+                      {formatCurrency(item.unitPrice)}
+                    </span>
+                    <span className="line-item-sub-row__cell">
+                      <span className="line-item-sub-row__label">Amount</span>
+                      {formatCurrency(item.qty * item.unitPrice)}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </>
           ))}
         </tbody>
-
-        <tfoot>
-          {/* Add row — display:block on mobile so it doesn't cause table overflow */}
-          <tr className="line-items-table__add-row">
-            <td colSpan={5} className="line-items-table__td">
-              <button
-                type="button"
-                className="line-items-table__add-btn"
-                onClick={() => dispatch({ type: 'ADD_LINE_ITEM' })}
-              >
-                + Add Line Item
-              </button>
-            </td>
-          </tr>
-
-          <tr className="line-items-table__subtotal-row">
-            <td
-              colSpan={3}
-              className="line-items-table__td line-items-table__td--subtotal-label"
-            >
-              Subtotal
-            </td>
-            <td
-              colSpan={2}
-              className="line-items-table__td line-items-table__td--subtotal-value"
-            >
-              {formatCurrency(subtotal)}
-            </td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   );

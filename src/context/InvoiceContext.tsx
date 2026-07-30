@@ -3,16 +3,17 @@ import {
   useContext,
   useReducer,
   type ReactNode,
+  type Dispatch,
 } from 'react';
 
 // ---------------------------------------------------------------------------
-// Domain types
+// Types
 // ---------------------------------------------------------------------------
 
 export interface LineItem {
   id: string;
   description: string;
-  quantity: number;
+  qty: number;
   unitPrice: number;
 }
 
@@ -26,10 +27,6 @@ export interface InvoiceState {
   lineItems: LineItem[];
 }
 
-// ---------------------------------------------------------------------------
-// Discriminated union of typed actions — never dispatch a plain string.
-// ---------------------------------------------------------------------------
-
 export type InvoiceAction =
   | { type: 'SET_CLIENT_NAME'; payload: string }
   | { type: 'SET_CLIENT_EMAIL'; payload: string }
@@ -37,12 +34,9 @@ export type InvoiceAction =
   | { type: 'SET_ISSUE_DATE'; payload: string }
   | { type: 'SET_DUE_DATE'; payload: string }
   | { type: 'SET_NOTES'; payload: string }
-  | { type: 'ADD_LINE_ITEM' }
-  | { type: 'REMOVE_LINE_ITEM'; payload: string }
-  | {
-      type: 'UPDATE_LINE_ITEM';
-      payload: { id: string; field: keyof Omit<LineItem, 'id'>; value: string | number };
-    };
+  | { type: 'ADD_LINE_ITEM'; payload: LineItem }
+  | { type: 'UPDATE_LINE_ITEM'; payload: LineItem }
+  | { type: 'REMOVE_LINE_ITEM'; payload: string };
 
 // ---------------------------------------------------------------------------
 // Initial state
@@ -51,20 +45,21 @@ export type InvoiceAction =
 const initialState: InvoiceState = {
   clientName: '',
   clientEmail: '',
-  invoiceNumber: 'INV-001',
-  issueDate: new Date().toISOString().slice(0, 10),
+  invoiceNumber: '',
+  issueDate: '',
   dueDate: '',
   notes: '',
-  lineItems: [
-    { id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0 },
-  ],
+  lineItems: [],
 };
 
 // ---------------------------------------------------------------------------
 // Reducer
 // ---------------------------------------------------------------------------
 
-/** Pure reducer — handles every typed InvoiceAction. */
+/**
+ * Pure reducer for invoice state.
+ * Each action maps to a single field update or line-item mutation.
+ */
 export function invoiceReducer(
   state: InvoiceState,
   action: InvoiceAction,
@@ -83,31 +78,22 @@ export function invoiceReducer(
     case 'SET_NOTES':
       return { ...state, notes: action.payload };
     case 'ADD_LINE_ITEM':
+      return { ...state, lineItems: [...state.lineItems, action.payload] };
+    case 'UPDATE_LINE_ITEM':
       return {
         ...state,
-        lineItems: [
-          ...state.lineItems,
-          { id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0 },
-        ],
+        lineItems: state.lineItems.map((item) =>
+          item.id === action.payload.id ? action.payload : item,
+        ),
       };
     case 'REMOVE_LINE_ITEM':
       return {
         ...state,
         lineItems: state.lineItems.filter((item) => item.id !== action.payload),
       };
-    case 'UPDATE_LINE_ITEM':
-      return {
-        ...state,
-        lineItems: state.lineItems.map((item) =>
-          item.id === action.payload.id
-            ? { ...item, [action.payload.field]: action.payload.value }
-            : item,
-        ),
-      };
     default: {
-      // Exhaustiveness check — TypeScript will error if a case is missing.
       const _exhaustive: never = action;
-      return _exhaustive;
+      return state;
     }
   }
 }
@@ -118,13 +104,13 @@ export function invoiceReducer(
 
 interface InvoiceContextValue {
   state: InvoiceState;
-  dispatch: React.Dispatch<InvoiceAction>;
+  dispatch: Dispatch<InvoiceAction>;
 }
 
 const InvoiceContext = createContext<InvoiceContextValue | null>(null);
 
 /**
- * Provides InvoiceState and typed dispatch to the component tree.
+ * Provides invoice state and dispatch to the component tree.
  */
 export function InvoiceProvider({ children }: { children: ReactNode }): JSX.Element {
   const [state, dispatch] = useReducer(invoiceReducer, initialState);
@@ -136,12 +122,13 @@ export function InvoiceProvider({ children }: { children: ReactNode }): JSX.Elem
 }
 
 /**
- * Consume InvoiceContext. Throws if used outside InvoiceProvider.
+ * Hook to consume invoice context.
+ * Throws if used outside InvoiceProvider.
  */
 export function useInvoice(): InvoiceContextValue {
   const ctx = useContext(InvoiceContext);
   if (!ctx) {
-    throw new Error('useInvoice must be used within an <InvoiceProvider>.');
+    throw new Error('useInvoice must be used within an InvoiceProvider');
   }
   return ctx;
 }
