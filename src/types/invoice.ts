@@ -1,43 +1,66 @@
 /**
- * Shared TypeScript types for the invoice domain.
- * Imported by context, form, and preview components.
+ * Shared TypeScript interfaces for the invoice document.
+ * Consumed by context, form, and preview components.
  */
 
-/** A single line item on the invoice. */
 export interface LineItem {
+  /** Stable identifier — use crypto.randomUUID() or nanoid() when creating */
   id: string;
   description: string;
-  quantity: string;
-  unitPrice: string;
+  quantity: number;
+  unitPrice: number;
 }
 
-/** Complete invoice state shape managed by the reducer. */
-export interface InvoiceState {
+export interface SenderInfo {
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  /** Optional — suppressed in preview when empty */
+  phone: string;
+  email: string;
+}
+
+export interface ClientInfo {
+  name: string;
+  addressLine1: string;
+  /** Optional — suppressed in preview when empty */
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  email: string;
+}
+
+export interface InvoiceMeta {
   invoiceNumber: string;
   issueDate: string;
   dueDate: string;
-  // Sender
-  senderName: string;
-  senderEmail: string;
-  senderPhone: string;
-  senderAddress1: string;
-  senderAddress2: string;
-  // Bill To
-  billToName: string;
-  billToEmail: string;
-  billToPhone: string;
-  billToAddress1: string;
-  billToAddress2: string;
-  // Line items & totals
-  lineItems: LineItem[];
-  taxRate: string;
-  // Notes
-  notes: string;
+  /** ISO 4217 currency code, e.g. "GBP" or "USD" */
+  currency: string;
+  /** Tax rate as a percentage, e.g. 20 for 20%. 0 suppresses the tax row. */
+  taxRate: number;
 }
 
-/** Discriminated union of all reducer actions. */
+export interface InvoiceState {
+  sender: SenderInfo;
+  client: ClientInfo;
+  meta: InvoiceMeta;
+  lineItems: LineItem[];
+  /** Optional footer notes */
+  notes: string;
+  /** Optional logo data-URL or remote URL */
+  logoUrl: string;
+}
+
+/** Actions dispatched to the invoice reducer */
 export type InvoiceAction =
-  | { type: 'UPDATE_FIELD'; field: keyof Omit<InvoiceState, 'lineItems'>; value: string }
-  | { type: 'ADD_LINE_ITEM' }
-  | { type: 'REMOVE_LINE_ITEM'; id: string }
-  | { type: 'UPDATE_LINE_ITEM'; id: string; field: keyof Omit<LineItem, 'id'>; value: string };
+  | { type: 'SET_SENDER'; payload: Partial<SenderInfo> }
+  | { type: 'SET_CLIENT'; payload: Partial<ClientInfo> }
+  | { type: 'SET_META'; payload: Partial<InvoiceMeta> }
+  | { type: 'SET_LINE_ITEMS'; payload: LineItem[] }
+  | { type: 'SET_NOTES'; payload: string }
+  | { type: 'SET_LOGO_URL'; payload: string }
+  | { type: 'RESET' };

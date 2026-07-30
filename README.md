@@ -4,91 +4,147 @@ Initialized by your AI team so we have a base branch to build on.
 
 ---
 
-## T7 — Live Invoice Preview
+## Invoice Preview (T7)
 
-A real-time, purely presentational invoice preview panel that mirrors a controlled form with zero latency — every keystroke in the form is reflected in the preview within the same React render cycle.
+A live, read-only A4-proportioned invoice preview panel that mirrors the invoice form state in real time.
 
-### Running the app
+### Architecture overview
 
-```bash
-npm install
-npm run dev
+```
+src/
+├── tokens/
+│   └── designTokens.ts          # Single source of truth for all design tokens
+├── types/
+│   └── invoice.ts               # Shared TypeScript interfaces
+├── context/
+│   └── InvoiceContext.tsx       # React Context + useReducer (state + dispatch)
+├── utils/
+│   ├── invoiceTotals.ts         # Pure totals derivation + formatCurrency
+│   └── ifPresent.tsx            # Helper for conditional field rendering
+└── components/
+    └── InvoicePreview/
+        ├── index.tsx             # Barrel export
+        ├── InvoicePreview.tsx    # Root preview component (read-only)
+        ├── LogoPlaceholder.tsx
+        ├── SenderBlock.tsx
+        ├── MetaBlock.tsx
+        ├── BillToBlock.tsx
+        ├── LineItemsTable.tsx
+        ├── TotalsBlock.tsx
+        ├── NotesBlock.tsx
+        └── InvoicePreview.module.css
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The left panel is the form; the right panel is the live preview.
+### Context shape
+
+```ts
+interface InvoiceState {
+  sender: SenderInfo;      // From address
+  client: ClientInfo;      // Bill To address
+  meta: InvoiceMeta;       // Invoice number, dates, currency, tax rate
+  lineItems: LineItem[];   // Description / qty / unit price rows
+  notes: string;           // Optional footer notes
+  logoUrl: string;         // Optional data-URL or remote URL
+}
+```
+
+The context exposes two hooks:
+
+| Hook | Purpose |
+|---|---|
+| `useInvoiceState()` | Read-only access — safe for preview components |
+| `useInvoiceDispatch()` | Write access — for form components only |
+
+### Available actions
+
+```ts
+dispatch({ type: 'SET_SENDER',     payload: Partial<SenderInfo> })
+dispatch({ type: 'SET_CLIENT',     payload: Partial<ClientInfo> })
+dispatch({ type: 'SET_META',       payload: Partial<InvoiceMeta> })
+dispatch({ type: 'SET_LINE_ITEMS', payload: LineItem[] })
+dispatch({ type: 'SET_NOTES',      payload: string })
+dispatch({ type: 'SET_LOGO_URL',   payload: string })
+dispatch({ type: 'RESET' })
+```
+
+### Design token contract (T3)
+
+All colours, typography, spacing, border radii, and shadows are defined in `src/tokens/designTokens.ts`. No hard-coded hex values or magic numbers exist anywhere else.
+
+To inject tokens as CSS custom properties at app startup:
+
+```ts
+import { injectCssVars } from './tokens/designTokens';
+injectCssVars(); // call once in main.tsx / App.tsx
+```
+
+The CSS module then references them as `var(--color-primary)`, `var(--spacing-8)`, etc.
+
+### `deriveInvoiceTotals` utility
+
+```ts
+import { deriveInvoiceTotals, formatCurrency } from './utils/invoiceTotals';
+
+const { subtotal, taxAmount, grandTotal } = deriveInvoiceTotals(lineItems, taxRate);
+// taxRate: percentage number, e.g. 20 for 20%
+// All values rounded to 2 decimal places — no floating-point drift
+
+formatCurrency(3.3, 'GBP'); // => '£3.30'
+formatCurrency(0,   'USD'); // => '$0.00'
+```
+
+### A4 aspect ratio
+
+The preview container uses `aspect-ratio: 210 / 297` (CSS property). A `padding-top: calc(297 / 210 * 100%)` fallback is applied via `@supports not (aspect-ratio: ...)` for older engines. The inner sheet is `position: absolute; inset: 0` so it fills the wrapper in both cases.
+
+### Empty field suppression
+
+Every optional field is guarded by the `ifPresent(value, render)` helper:
+
+```ts
+{ifPresent(sender.phone, (v) => <span>{v}</span>)}
+```
+
+This returns `null` for empty strings, preventing orphan elements in the DOM.
+
+Fields suppressed when empty:
+- `sender.phone`, `sender.addressLine2`
+- `client.addressLine2`
+- `meta.invoiceNumber`, `meta.issueDate`, `meta.dueDate`
+- Tax row in `TotalsBlock` (when `taxRate === 0`)
+- Entire `NotesBlock` (when `notes` is blank)
+
+### Usage
+
+```tsx
+import { InvoiceProvider } from './context/InvoiceContext';
+import { InvoicePreview } from './components/InvoicePreview';
+
+function App() {
+  return (
+    <InvoiceProvider>
+      {/* Your form dispatches actions to the context */}
+      <InvoiceForm />
+      {/* Preview subscribes and re-renders automatically */}
+      <InvoicePreview />
+    </InvoiceProvider>
+  );
+}
+```
 
 ### Running tests
 
 ```bash
+npm install
 npm test
 ```
 
----
+Test suite covers:
 
-### Component tree
-
-```
-<App>
-  <InvoiceProvider>          ← shared state (React Context + useReducer)
-    <InvoiceForm />          ← dispatches on every onChange keystroke
-    <InvoicePreview>         ← A4-ratio container, zero state mutations
-      <PreviewHeader />      ← logo placeholder + sender + INVOICE heading/dates
-      <PreviewBillTo />      ← Bill To block (suppressed when billToName empty)
-      <PreviewLineItemsTable /> ← line items table (handles 0 rows gracefully)
-      <PreviewTotals />      ← derives subtotal/tax/grand-total inline
-      <PreviewNotes />       ← notes section (suppressed when notes empty)
-    </InvoicePreview>
-  </InvoiceProvider>
-</App>
-```
-
----
-
-### Token layer
-
-All colours, typography sizes/weights, spacing values, and border radii live in **`src/tokens/index.ts`** and are exported as a single typed `tokens` object.
-
-```ts
-import { tokens } from './tokens';
-// tokens.color.accent, tokens.spacing['4'], tokens.typography.size.base …
-```
-
-No component contains a hard-coded hex value or magic number — every visual decision traces back to a token.
-
----
-
-### Context / selector pattern
-
-| Hook | Who uses it | Purpose |
-|---|---|---|
-| `useInvoiceState()` | Preview components only | Read-only access to invoice state |
-| `useInvoiceDispatch()` | `InvoiceForm` only | Write access via discriminated-union actions |
-
-The preview components call **only** `useInvoiceState()` — they never hold local state, never dispatch, and never register event handlers. This guarantees the preview is purely presentational and always consistent with the form.
-
-#### Reducer actions
-
-| Action type | Payload | Effect |
-|---|---|---|
-| `UPDATE_FIELD` | `field`, `value` | Updates any scalar field on `InvoiceState` |
-| `ADD_LINE_ITEM` | — | Appends a new blank line item |
-| `REMOVE_LINE_ITEM` | `id` | Removes the line item with the given id |
-| `UPDATE_LINE_ITEM` | `id`, `field`, `value` | Updates a single field on a line item |
-
----
-
-### Edge cases handled
-
-| Scenario | Behaviour |
+| Suite | What it verifies |
 |---|---|
-| `lineItems` is empty | Table renders with a single colspan placeholder row — no JS error |
-| `taxRate` is `0`, `undefined`, or `""` | Tax line shows `$0.00`; grand total equals subtotal |
-| `quantity` or `unitPrice` is `NaN` / empty string | Treated as `0` via `Number(x) \|\| 0`; amount shows `$0.00` |
-| All optional fields blank | Zero empty DOM nodes emitted; no blank vertical gaps |
-| `notes` is empty / whitespace | Entire Notes section absent from DOM |
-| `billToName` is empty | Entire Bill To block suppressed |
-| Very long description | `word-break: break-word` on description `<td>` prevents table overflow |
-| `invoiceNumber` is empty | Heading still renders `INVOICE`; number field shows `—` |
-| `issueDate` / `dueDate` empty | Date rows suppressed individually |
-| Logo field empty | Placeholder `<div>` always renders — never throws |
-| Rapid keystrokes | No debounce; every React render cycle reflects latest context value |
+| `invoiceTotals.test.ts` | Subtotal / tax / grand total correctness, zero tax, empty items, floating-point edge cases |
+| `InvoicePreview.test.tsx` (a) | All sections render when state is fully populated |
+| `InvoicePreview.test.tsx` (b) | Optional empty fields are absent from the DOM |
+| `InvoicePreview.test.tsx` (c) | No dispatch / setState called during preview render |
+| `InvoicePreview.test.tsx` (d) | Snapshot stability for full and empty states |
