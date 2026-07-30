@@ -17,7 +17,7 @@ export function Header() {
    */
   function handleNewInvoice() {
     const confirmed = window.confirm(
-      'Start a new invoice? All current data will be cleared.',
+      'This will clear all current invoice data. Are you sure?',
     );
     if (!confirmed) return;
 

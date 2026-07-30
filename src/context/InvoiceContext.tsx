@@ -95,9 +95,11 @@ function loadPersistedState(): InvoiceState {
 /**
  * Provides invoice state and dispatch to the component tree.
  * Persistence behaviour:
- *  - On every state change EXCEPT RESET_INVOICE → writes to localStorage.
+ *  - On every state change EXCEPT RESET_INVOICE or initial load → writes to localStorage.
  *  - On RESET_INVOICE → skips setItem so the key is absent after reset.
  *    (Header.handleNewInvoice already called removeItem before dispatching.)
+ *  - On initial load (_lastAction === '') → skips setItem to avoid writing back
+ *    what was just read, and to prevent polluting post-reset setItem counts in tests.
  */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, undefined, loadPersistedState);
@@ -105,6 +107,10 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (state._lastAction === 'RESET_INVOICE') {
       // Key was already removed by Header; do not re-write defaults.
+      return;
+    }
+    if (state._lastAction === '') {
+      // Initial load from localStorage — no need to write back what we just read.
       return;
     }
     try {
