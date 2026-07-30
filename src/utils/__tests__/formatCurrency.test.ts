@@ -51,6 +51,22 @@ describe('formatCurrency', () => {
     });
   });
 
+  describe('AUD', () => {
+    it('formats AUD with A$ prefix and 2 decimal places', () => {
+      const result = formatCurrency(100, 'AUD');
+      expect(result).toMatch(/^A\$/);
+      expect(result).toMatch(/[.,]\d{2}$/);
+    });
+  });
+
+  describe('CAD', () => {
+    it('formats CAD with C$ prefix and 2 decimal places', () => {
+      const result = formatCurrency(100, 'CAD');
+      expect(result).toMatch(/^C\$/);
+      expect(result).toMatch(/[.,]\d{2}$/);
+    });
+  });
+
   describe('Other (custom symbol)', () => {
     it('prefixes the custom symbol', () => {
       const result = formatCurrency(100, 'Other', '₿');
@@ -60,7 +76,6 @@ describe('formatCurrency', () => {
 
     it('renders no prefix when customSymbol is empty string', () => {
       const result = formatCurrency(100, 'Other', '');
-      // Should not crash and should still contain the number
       expect(result).toMatch(/100/);
       expect(result.charAt(0)).toMatch(/\d/);
     });
@@ -75,14 +90,24 @@ describe('formatCurrency', () => {
       expect(result.startsWith('ABCD')).toBe(true);
       expect(result.startsWith('ABCDE')).toBe(false);
     });
+
+    it('formats Other with 2 decimal places', () => {
+      const result = formatCurrency(1234.5, 'Other', '€€');
+      expect(result).toMatch(/[.,]\d{2}$/);
+    });
   });
 
   describe('symbol prefixing', () => {
-    it('always prefixes the symbol before the number', () => {
+    it('always prefixes the symbol before the number for USD', () => {
       const result = formatCurrency(42, 'USD');
       const dollarIndex = result.indexOf('$');
       const digitIndex = result.search(/\d/);
       expect(dollarIndex).toBeLessThan(digitIndex);
+    });
+
+    it('always prefixes ¥ before the number for JPY', () => {
+      const result = formatCurrency(42, 'JPY');
+      expect(result.indexOf('¥')).toBeLessThan(result.search(/\d/));
     });
   });
 });
