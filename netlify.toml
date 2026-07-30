@@ -1,0 +1,20 @@
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+
+# SPA fallback — serve index.html for all unmatched routes so
+# client-side routing works on hard refresh / direct navigation.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Strict CSP — blob: is required for PDF generation (jsPDF / canvas blob URLs).
+    Content-Security-Policy = "default-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self' data:"
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
