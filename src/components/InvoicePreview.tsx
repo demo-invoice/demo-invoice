@@ -1,0 +1,4 @@
+/**
+ * InvoicePreview — live preview panel.
+ *
+ */
