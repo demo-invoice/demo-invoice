@@ -1,0 +1,31 @@
+# Continuous integration: install deps and run tests on every push and PR.
+
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    name: Install & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          # restore-keys fallback prevents cache-miss failure when no lockfile exists yet.
+          cache-dependency-path: '**/package.json'
+
+      - name: Install dependencies
+        # `npm install` (not `npm install`) — no committed lockfile in a greenfield repo.
+        run: npm install
+
+      - name: Test
+        run: npm test
