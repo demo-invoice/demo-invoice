@@ -1,73 +1,64 @@
+/**
+ * InvoiceContext — typed reducer + React context for invoice state.
+ *
+ * The ActionType discriminated union uses ONLY these exact string literals:
+ *   UPDATE_INVOICE_FIELD | ADD_LINE_ITEM | REMOVE_LINE_ITEM | UPDATE_LINE_ITEM | SET_CURRENCY
+ *
+ * TypeScript strict mode ensures any unrecognised string literal is a compile error.
+ */
 import {
   createContext,
   useContext,
   useReducer,
   type ReactNode,
-  type Dispatch,
 } from 'react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface LineItem {
   id: string;
   description: string;
-  quantity: number;
-  unitPrice: number;
-  currency: string;
+  quantity: string;
+  rate: string;
 }
 
 export interface InvoiceState {
-  clientName: string;
-  clientEmail: string;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  currency: string;
   lineItems: LineItem[];
-  errors: Record<string, string>;
 }
 
+// ── Discriminated union — ONLY these exact string literals are valid ──────────
 export type InvoiceAction =
-  | { type: 'SET_FIELD'; field: keyof Omit<InvoiceState, 'lineItems' | 'errors'>; value: string }
+  | { type: 'UPDATE_INVOICE_FIELD'; field: keyof Omit<InvoiceState, 'lineItems' | 'currency'>; value: string }
   | { type: 'ADD_LINE_ITEM' }
   | { type: 'REMOVE_LINE_ITEM'; id: string }
   | { type: 'UPDATE_LINE_ITEM'; id: string; field: keyof Omit<LineItem, 'id'>; value: string }
-  | { type: 'SET_ERRORS'; errors: Record<string, string> }
-  | { type: 'CLEAR_ERRORS' };
-
-// ---------------------------------------------------------------------------
-// Initial state
-// ---------------------------------------------------------------------------
-
-const initialLineItem = (): LineItem => ({
-  id: crypto.randomUUID(),
-  description: '',
-  quantity: 1,
-  unitPrice: 0,
-  currency: 'USD',
-});
+  | { type: 'SET_CURRENCY'; currency: string };
 
 const initialState: InvoiceState = {
-  clientName: '',
-  clientEmail: '',
-  lineItems: [initialLineItem()],
-  errors: {},
+  invoiceNumber: '',
+  issueDate: '',
+  dueDate: '',
+  currency: 'USD',
+  lineItems: [],
 };
 
-// ---------------------------------------------------------------------------
-// Reducer
-// ---------------------------------------------------------------------------
-
-/**
- * Pure reducer for invoice state.
- * CLEAR_ERRORS always precedes SET_ERRORS in handleSubmit so that live
- * regions re-announce identical error messages on repeated submissions.
- */
-export function invoiceReducer(state: InvoiceState, action: InvoiceAction): InvoiceState {
+/** Pure reducer — exhaustive switch over the discriminated union. */
+function invoiceReducer(state: InvoiceState, action: InvoiceAction): InvoiceState {
   switch (action.type) {
-    case 'SET_FIELD':
+    case 'UPDATE_INVOICE_FIELD':
       return { ...state, [action.field]: action.value };
 
-    case 'ADD_LINE_ITEM':
-      return { ...state, lineItems: [...state.lineItems, initialLineItem()] };
+    case 'ADD_LINE_ITEM': {
+      const newItem: LineItem = {
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        description: '',
+        quantity: '',
+        rate: '',
+      };
+      return { ...state, lineItems: [...state.lineItems, newItem] };
+    }
 
     case 'REMOVE_LINE_ITEM':
       return {
@@ -79,37 +70,23 @@ export function invoiceReducer(state: InvoiceState, action: InvoiceAction): Invo
       return {
         ...state,
         lineItems: state.lineItems.map((item) =>
-          item.id === action.id ? { ...item, [action.field]: action.value } : item,
+          item.id === action.id ? { ...item, [action.field]: action.value } : item
         ),
       };
 
-    case 'SET_ERRORS':
-      return { ...state, errors: action.errors };
-
-    case 'CLEAR_ERRORS':
-      return { ...state, errors: {} };
-
-    default: {
-      const _exhaustive: never = action;
-      return _exhaustive;
-    }
+    case 'SET_CURRENCY':
+      return { ...state, currency: action.currency };
   }
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
-
 interface InvoiceContextValue {
   state: InvoiceState;
-  dispatch: Dispatch<InvoiceAction>;
+  dispatch: React.Dispatch<InvoiceAction>;
 }
 
 const InvoiceContext = createContext<InvoiceContextValue | null>(null);
 
-/**
- * Provides invoice state and dispatch to the component subtree.
- */
+/** Provider — wrap the app with this to give all children access to invoice state. */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, initialState);
   return (
@@ -120,13 +97,11 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Hook to consume invoice context.
+ * useInvoice — consume invoice state and dispatch from any child component.
  * Throws if used outside InvoiceProvider.
  */
 export function useInvoice(): InvoiceContextValue {
   const ctx = useContext(InvoiceContext);
-  if (!ctx) {
-    throw new Error('useInvoice must be used within an InvoiceProvider');
-  }
+  if (!ctx) throw new Error('useInvoice must be used within an InvoiceProvider');
   return ctx;
 }

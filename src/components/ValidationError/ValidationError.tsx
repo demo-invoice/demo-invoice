@@ -1,43 +1,29 @@
 /**
- * ValidationError — always-mounted ARIA live region.
+ * ValidationError — always rendered in the DOM (empty when no error) so that
+ * aria-describedby references on inputs are never broken by a missing element.
  *
- * The container element is ALWAYS rendered (never returns null) so that
- * VoiceOver / NVDA register the live region before any text is inserted.
- * Conditionally mounting the element and then setting text in the same
- * render tick is a known anti-pattern: screen readers miss the announcement
- * because they haven't observed the region yet.
- *
- * Usage:
- *   <ValidationError id="error-client-name" message={errors.clientName} />
- *   <input aria-describedby="error-client-name" ... />
+ * Toggle content, never mount/unmount.
  */
+import styles from './ValidationError.module.css';
 
-export interface ValidationErrorProps {
-  /** Must match the aria-describedby value on the associated input. */
+interface Props {
+  /** Stable id referenced by the input's aria-describedby. */
   id: string;
-  /** Error message to announce. Pass undefined / empty string when valid. */
+  /** Error message, or empty string / undefined when valid. */
   message?: string;
-  /**
-   * 'assertive' (default) — interrupts the user immediately (role="alert").
-   * 'polite' — waits for the user to be idle (role="status").
-   */
-  live?: 'assertive' | 'polite';
 }
 
-export function ValidationError({ id, message, live = 'assertive' }: ValidationErrorProps) {
-  const role = live === 'assertive' ? 'alert' : 'status';
+/**
+ * Renders a <span> with a stable id.
+ * When message is falsy the span is empty but remains in the DOM.
+ */
+export function ValidationError({ id, message }: Props) {
   return (
     <span
       id={id}
-      role={role}
-      aria-live={live}
-      style={{
-        display: 'block',
-        minHeight: '1.25em',
-        color: 'var(--color-error, #b91c1c)',
-        fontSize: '0.875rem',
-        marginTop: '0.25rem',
-      }}
+      role={message ? 'alert' : undefined}
+      className={styles.error}
+      aria-hidden={!message}
     >
       {message ?? ''}
     </span>

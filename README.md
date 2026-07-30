@@ -1,103 +1,89 @@
 # demo-invoice
 
-An accessibility-compliant invoice form built with React, TypeScript, and Vite.
+Initialized by your AI team so we have a base branch to build on.
 
-## Getting started
+---
+
+## Accessibility Implementation (T17)
+
+This project targets **WCAG 2.1 AA** compliance. Below is a guide to the
+implementation, how to audit it, and the keyboard navigation contract.
+
+### Running an axe DevTools audit
+
+1. Install the [axe DevTools browser extension](https://www.deque.com/axe/devtools/).
+2. Run the dev server: `npm run dev`
+3. Open `http://localhost:5173` in Chrome or Firefox.
+4. Open DevTools → **axe DevTools** tab → **Scan ALL of my page**.
+5. All issues should be zero violations at AA level.
+
+Alternatively, use the CLI:
 
 ```bash
-npm install
-npm run dev      # start dev server
-npm test         # run all tests (vitest)
-npm run build    # type-check + production build
+npx axe http://localhost:5173 --tags wcag2a,wcag2aa
 ```
 
----
+### Keyboard navigation guide
 
-## Architecture decisions
+#### General tab order
 
-### InvoiceProvider location — `src/App.tsx` (not `src/index.tsx`)
-
-`<InvoiceProvider>` lives in `App.tsx` and wraps `<InvoiceForm />` there.
-`src/index.tsx` only renders `<App />` — it has no knowledge of the context.
-
-**Why:** Co-locating the provider with the component tree that consumes it
-makes the boundary obvious and keeps `index.tsx` minimal. It also means
-tests can import `InvoiceForm` and wrap it with `<InvoiceProvider>` directly
-without touching the entry point.
-
----
-
-## Running the axe accessibility audit in tests
-
-axe-core is integrated directly into the Vitest test suite.
-The test `'has zero critical/serious axe violations on initial render'` in
-`src/components/InvoiceForm/InvoiceForm.test.tsx` runs `axe.run(container)`
-after every render and asserts:
-
-```ts
-const blocking = results.violations.filter(
-  (v) => v.impact === 'critical' || v.impact === 'serious',
-);
-expect(blocking).toHaveLength(0);
+```
+Invoice Number → (Line item rows: Description → Qty → Rate → Remove) →
+Add line item → Currency → Issue Date → Due Date → Save Invoice
 ```
 
-To run only the accessibility tests:
-
-```bash
-npx vitest run --reporter=verbose InvoiceForm.test
-```
-
-To see the full axe violation report on failure, add a `console.log` before
-the assertion:
-
-```ts
-console.log(JSON.stringify(blocking, null, 2));
-```
-
----
-
-## Keyboard navigation
+#### Currency Dropdown (custom combobox)
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Move focus forward through all form controls |
-| `Shift+Tab` | Move focus backward |
-| `Enter` / `Space` | Activate focused button |
-| `Arrow keys` | Navigate options inside a `<select>` (currency) |
-| `Enter` (on form) | Submit the invoice |
+| `Tab` | Focus the trigger button |
+| `Enter` or `Space` | Open the listbox |
+| `ArrowDown` | Move highlight to next option (wraps) |
+| `ArrowUp` | Move highlight to previous option (wraps) |
+| `Enter` (listbox open) | Select highlighted option and close |
+| `Escape` | Close without selecting; focus returns to trigger |
+| `Tab` (listbox open) | Close listbox and move focus to next element (no trap) |
 
-After removing a line item, focus automatically returns to the **Add Item**
-button so keyboard and switch-access users are never stranded.
+### Typed action union — CAUTION note
 
----
+The `InvoiceContext` reducer uses a **TypeScript discriminated union** for all
+dispatch actions. The only valid `type` string literals are:
 
-## WCAG AA compliance notes
+```ts
+'UPDATE_INVOICE_FIELD'
+'ADD_LINE_ITEM'
+'REMOVE_LINE_ITEM'
+'UPDATE_LINE_ITEM'
+'SET_CURRENCY'
+```
 
-| Criterion | Implementation |
-|-----------|---------------|
-| 1.1.1 Non-text content | All icon-only buttons have `aria-label` |
-| 1.3.1 Info and relationships | `<label htmlFor>` paired with input `id` on every field; `<fieldset>`/`<legend>` groups client details |
-| 1.3.5 Identify input purpose | `autoComplete` attributes on name and email inputs |
-| 1.4.3 Contrast (minimum) | All text colours verified ≥ 4.5:1 against white background (see `src/index.css`) |
-| 2.1.1 Keyboard | All interactions reachable and operable by keyboard only |
-| 2.4.3 Focus order | DOM order matches visual order; no `tabindex` manipulation |
-| 2.4.7 Focus visible | `:focus-visible` outline on all interactive elements |
-| 3.3.1 Error identification | Errors identified in text via `ValidationError` live regions |
-| 3.3.2 Labels or instructions | Every input has an explicit visible label |
-| 4.1.3 Status messages | `role="alert"` / `aria-live="assertive"` on error regions; `role="status"` / `aria-live="polite"` available for non-critical messages |
+**Never use a generic string like `'UPDATE_FIELD'`** — it will not match any
+branch in the reducer and will silently no-op at runtime. With `strict: true`
+in `tsconfig.json`, TypeScript will catch this as a compile error before it
+ever reaches the browser. All dispatch call sites in the codebase use only
+the exact literals above.
 
-### Live region anti-pattern — avoided
+### Colour contrast tokens
 
-ValidationError **always renders its container element** (never returns `null`).
-Screen readers (VoiceOver, NVDA) register live regions when they first appear
-in the DOM. If the element is conditionally mounted *at the same time* as the
-error text is set, the announcement is missed. By keeping the node in the DOM
-with empty text and only changing the text content, we guarantee the
-announcement fires reliably.
+All colour values are defined in `src/styles/tokens.css` and verified against
+WCAG AA (4.5:1 minimum for normal text):
 
-### Double-submit re-announcement
+| Token | Value | Ratio on white |
+|-------|-------|----------------|
+| `--color-error` | `#b91c1c` | 5.9:1 ✓ |
+| `--color-text` | `#111827` | 18.1:1 ✓ |
+| `--color-text-muted` | `#374151` | 10.7:1 ✓ |
+| `--color-placeholder` | `#6b7280` | 4.6:1 ✓ |
+| `--color-btn-primary-bg` | `#1d4ed8` | 7.2:1 (white text) ✓ |
+| `--color-btn-danger-bg` | `#b91c1c` | 5.9:1 (white text) ✓ |
 
-`handleSubmit` dispatches `CLEAR_ERRORS` **before** `SET_ERRORS` on every
-attempt. This causes the live region text node to transition `text → empty →
-text`, which re-triggers the screen reader announcement even when the error
-messages are identical to the previous submission.
+### aria-live regions
+
+Two live regions are rendered once at the top of `InvoiceForm` and updated
+dynamically — they are **never unmounted**, which prevents double-announcement
+on initial render:
+
+- `aria-live="polite"` (`role="status"`) — success messages and field-level
+  feedback that should not interrupt the user.
+- `aria-live="assertive"` (`role="alert"`) — the full error summary on form
+  submit, announced immediately.

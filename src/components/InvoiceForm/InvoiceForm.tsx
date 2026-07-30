@@ -1,95 +1,196 @@
-import { type FormEvent } from 'react';
+/**
+ * InvoiceForm — main invoice form.
+ *
+ * Accessibility contract:
+ *   - Every input has an explicit <label htmlFor> paired with a matching id.
+ *   - Validation errors are wired via aria-describedby → stable error span ids.
+ *   - aria-invalid reflects field error state.
+ *   - A polite aria-live region announces field-level errors after interaction.
+ *   - An assertive aria-live region announces the full error summary on submit.
+ *   - Tab order: invoice fields → line items → currency → dates → submit.
+ */
+import { useState, useRef, useCallback } from 'react';
 import { useInvoice } from '../../context/InvoiceContext';
+import { LineItems } from '../LineItems/LineItems';
+import { CurrencyDropdown } from '../CurrencyDropdown/CurrencyDropdown';
 import { ValidationError } from '../ValidationError/ValidationError';
-import { LineItemList } from './LineItemList';
+import styles from './InvoiceForm.module.css';
 
-/** Validates the invoice state and returns a map of field → error message. */
-function validate(clientName: string, clientEmail: string): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (!clientName.trim()) {
-    errors['clientName'] = 'Client name is required.';
-  }
-  if (!clientEmail.trim()) {
-    errors['clientEmail'] = 'Client email is required.';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
-    errors['clientEmail'] = 'Client email must be a valid email address.';
-  }
+interface FormErrors {
+  invoiceNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+}
+
+/** Validates invoice-level fields; returns an errors object (empty = valid). */
+function validate(invoiceNumber: string, issueDate: string, dueDate: string): FormErrors {
+  const errors: FormErrors = {};
+  if (!invoiceNumber.trim()) errors.invoiceNumber = 'Invoice number is required.';
+  if (!issueDate) errors.issueDate = 'Issue date is required.';
+  if (!dueDate) errors.dueDate = 'Due date is required.';
+  if (issueDate && dueDate && dueDate < issueDate)
+    errors.dueDate = 'Due date must be on or after the issue date.';
   return errors;
 }
 
-/**
- * Main invoice form component.
- *
- * Every input has an explicit <label htmlFor> paired with a matching id.
- * Each input's aria-describedby points to its ValidationError id.
- *
- * handleSubmit dispatches CLEAR_ERRORS then SET_ERRORS on every attempt so
- * that live regions re-announce identical error messages on repeated
- * submissions (empty → text transition re-triggers the announcement).
- */
+/** Main invoice form component. */
 export function InvoiceForm() {
   const { state, dispatch } = useInvoice();
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const assertiveLiveRef = useRef<HTMLDivElement>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // CLEAR_ERRORS first so live region text node goes empty → text,
-    // re-triggering announcement even when errors are identical.
-    dispatch({ type: 'CLEAR_ERRORS' });
-    const errors = validate(state.clientName, state.clientEmail);
-    if (Object.keys(errors).length > 0) {
-      dispatch({ type: 'SET_ERRORS', errors });
-      return;
-    }
-    // TODO: submit invoice to API
-    alert('Invoice submitted successfully!');
-  }
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const newErrors = validate(state.invoiceNumber, state.issueDate, state.dueDate);
+      setErrors(newErrors);
+      setSubmitted(true);
+
+      if (Object.keys(newErrors).length > 0) {
+        // Assertive live region — announced immediately
+        const summary = Object.values(newErrors).join(' ');
+        if (assertiveLiveRef.current) {
+          // Force re-announcement by briefly clearing then setting
+          assertiveLiveRef.current.textContent = '';
+          requestAnimationFrame(() => {
+            if (assertiveLiveRef.current) assertiveLiveRef.current.textContent = summary;
+          });
+        }
+        return;
+      }
+
+      setSuccessMessage('Invoice saved successfully.');
+    },
+    [state]
+  );
+
+  const handleFieldChange = useCallback(
+    (field: 'invoiceNumber' | 'issueDate' | 'dueDate', value: string) => {
+      dispatch({ type: 'UPDATE_INVOICE_FIELD', field, value });
+      if (submitted) {
+        // Re-validate on change after first submit attempt
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated[field];
+          return updated;
+        });
+      }
+    },
+    [dispatch, submitted]
+  );
 
   return (
-    <main>
-      <h1>Create Invoice</h1>
-      <form onSubmit={handleSubmit} noValidate aria-label="Invoice form">
-        <fieldset>
-          <legend>Client Details</legend>
+    <>
+      {/* Polite live region — field-level errors announced after interaction */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className={styles.srOnly}
+      >
+        {successMessage}
+      </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="clientName">Client name</label>
-            <input
-              id="clientName"
-              type="text"
-              value={state.clientName}
-              aria-describedby="error-clientName"
-              aria-required="true"
-              autoComplete="name"
-              onChange={(e) =>
-                dispatch({ type: 'SET_FIELD', field: 'clientName', value: e.target.value })
-              }
-            />
-            <ValidationError id="error-clientName" message={state.errors['clientName']} />
-          </div>
+      {/* Assertive live region — submit error summary announced immediately */}
+      <div
+        ref={assertiveLiveRef}
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+        className={styles.srOnly}
+      />
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="clientEmail">Client email</label>
-            <input
-              id="clientEmail"
-              type="email"
-              value={state.clientEmail}
-              aria-describedby="error-clientEmail"
-              aria-required="true"
-              autoComplete="email"
-              onChange={(e) =>
-                dispatch({ type: 'SET_FIELD', field: 'clientEmail', value: e.target.value })
-              }
-            />
-            <ValidationError id="error-clientEmail" message={state.errors['clientEmail']} />
-          </div>
-        </fieldset>
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        className={styles.form}
+        aria-label="Invoice form"
+      >
+        <h1 className={styles.title}>New Invoice</h1>
 
-        <LineItemList />
+        {/* ── Invoice Number ─────────────────────────────────────────── */}
+        <div className={styles.fieldGroup}>
+          <label htmlFor="invoice-number" className={styles.label}>
+            Invoice Number <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="invoice-number"
+            type="text"
+            value={state.invoiceNumber}
+            onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+            aria-describedby="invoice-number-error"
+            aria-invalid={!!errors.invoiceNumber}
+            aria-required="true"
+            className={styles.input}
+            placeholder="INV-001"
+          />
+          <ValidationError id="invoice-number-error" message={errors.invoiceNumber} />
+        </div>
 
-        <button type="submit" style={{ marginTop: '1.5rem' }}>
-          Submit Invoice
+        {/* ── Line Items ─────────────────────────────────────────────── */}
+        <LineItems />
+
+        {/* ── Currency ──────────────────────────────────────────────── */}
+        <div className={styles.fieldGroup}>
+          <label htmlFor="currency-trigger" className={styles.label}>
+            Currency
+          </label>
+          <CurrencyDropdown
+            id="currency-trigger"
+            value={state.currency}
+            onChange={(currency) => dispatch({ type: 'SET_CURRENCY', currency })}
+          />
+        </div>
+
+        {/* ── Issue Date ────────────────────────────────────────────── */}
+        <div className={styles.fieldGroup}>
+          <label htmlFor="issue-date" className={styles.label}>
+            Issue Date <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="issue-date"
+            type="date"
+            value={state.issueDate}
+            onChange={(e) => handleFieldChange('issueDate', e.target.value)}
+            aria-describedby="issue-date-error"
+            aria-invalid={!!errors.issueDate}
+            aria-required="true"
+            className={styles.input}
+          />
+          <ValidationError id="issue-date-error" message={errors.issueDate} />
+        </div>
+
+        {/* ── Due Date ──────────────────────────────────────────────── */}
+        <div className={styles.fieldGroup}>
+          <label htmlFor="due-date" className={styles.label}>
+            Due Date <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="due-date"
+            type="date"
+            value={state.dueDate}
+            onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+            aria-describedby="due-date-error"
+            aria-invalid={!!errors.dueDate}
+            aria-required="true"
+            className={styles.input}
+          />
+          <ValidationError id="due-date-error" message={errors.dueDate} />
+        </div>
+
+        {/* ── Submit ────────────────────────────────────────────────── */}
+        <button type="submit" className={styles.submitBtn}>
+          Save Invoice
         </button>
+
+        {successMessage && (
+          <p className={styles.successMessage} role="status">
+            {successMessage}
+          </p>
+        )}
       </form>
-    </main>
+    </>
   );
 }

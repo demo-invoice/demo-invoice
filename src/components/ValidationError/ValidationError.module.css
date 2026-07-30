@@ -1,10 +1,9 @@
-/**
- * Error text: #b91c1c on #ffffff — contrast ratio ~5.9:1 (exceeds 4.5:1 AA).
- */
+@import '../../styles/tokens.css';
+
 .error {
   display: block;
+  min-height: 1.25rem; /* reserves space so layout doesn't shift */
+  font-size: 0.875rem;
+  color: var(--color-error); /* #b91c1c — 5.9:1 on white ✓ */
   margin-top: var(--space-1);
-  font-size: var(--font-size-sm);
-  color: var(--color-error);
-  font-weight: 500;
 }
