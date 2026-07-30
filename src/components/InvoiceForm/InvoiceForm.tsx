@@ -1,196 +1,98 @@
-/**
- * InvoiceForm — main invoice form.
- *
- * Accessibility contract:
- *   - Every input has an explicit <label htmlFor> paired with a matching id.
- *   - Validation errors are wired via aria-describedby → stable error span ids.
- *   - aria-invalid reflects field error state.
- *   - A polite aria-live region announces field-level errors after interaction.
- *   - An assertive aria-live region announces the full error summary on submit.
- *   - Tab order: invoice fields → line items → currency → dates → submit.
- */
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useInvoice } from '../../context/InvoiceContext';
-import { LineItems } from '../LineItems/LineItems';
-import { CurrencyDropdown } from '../CurrencyDropdown/CurrencyDropdown';
 import { ValidationError } from '../ValidationError/ValidationError';
-import styles from './InvoiceForm.module.css';
+import { CurrencyDropdown } from '../CurrencyDropdown/CurrencyDropdown';
+import { LineItems } from '../LineItems/LineItems';
 
-interface FormErrors {
-  invoiceNumber?: string;
-  issueDate?: string;
-  dueDate?: string;
-}
-
-/** Validates invoice-level fields; returns an errors object (empty = valid). */
-function validate(invoiceNumber: string, issueDate: string, dueDate: string): FormErrors {
-  const errors: FormErrors = {};
-  if (!invoiceNumber.trim()) errors.invoiceNumber = 'Invoice number is required.';
-  if (!issueDate) errors.issueDate = 'Issue date is required.';
-  if (!dueDate) errors.dueDate = 'Due date is required.';
-  if (issueDate && dueDate && dueDate < issueDate)
-    errors.dueDate = 'Due date must be on or after the issue date.';
+/**
+ * Validates the current invoice state and returns an array of error messages.
+ */
+function validate(clientName: string, lineItems: { description: string }[]): string[] {
+  const errors: string[] = [];
+  if (!clientName.trim()) {
+    errors.push('Client name is required.');
+  }
+  if (lineItems.length === 0) {
+    errors.push('At least one line item is required.');
+  }
   return errors;
 }
 
-/** Main invoice form component. */
+/**
+ * Main invoice form.
+ *
+ * Live region content is driven exclusively via React state — no direct
+ * DOM mutation, no assertiveLiveRef, no requestAnimationFrame.
+ *
+ * On every submit: CLEAR_ERRORS is dispatched first (resets live region),
+ * then SET_ERRORS is dispatched so the live region re-announces even on
+ * repeated identical submissions.
+ */
 export function InvoiceForm() {
   const { state, dispatch } = useInvoice();
-  const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const assertiveLiveRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const newErrors = validate(state.invoiceNumber, state.issueDate, state.dueDate);
-      setErrors(newErrors);
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // Always clear first so the live region re-announces on repeated submits
+    dispatch({ type: 'CLEAR_ERRORS' });
+    const errors = validate(state.clientName, state.lineItems);
+    dispatch({ type: 'SET_ERRORS', errors });
+    if (errors.length === 0) {
       setSubmitted(true);
-
-      if (Object.keys(newErrors).length > 0) {
-        // Assertive live region — announced immediately
-        const summary = Object.values(newErrors).join(' ');
-        if (assertiveLiveRef.current) {
-          // Force re-announcement by briefly clearing then setting
-          assertiveLiveRef.current.textContent = '';
-          requestAnimationFrame(() => {
-            if (assertiveLiveRef.current) assertiveLiveRef.current.textContent = summary;
-          });
-        }
-        return;
-      }
-
-      setSuccessMessage('Invoice saved successfully.');
-    },
-    [state]
-  );
-
-  const handleFieldChange = useCallback(
-    (field: 'invoiceNumber' | 'issueDate' | 'dueDate', value: string) => {
-      dispatch({ type: 'UPDATE_INVOICE_FIELD', field, value });
-      if (submitted) {
-        // Re-validate on change after first submit attempt
-        setErrors((prev) => {
-          const updated = { ...prev };
-          delete updated[field];
-          return updated;
-        });
-      }
-    },
-    [dispatch, submitted]
-  );
+    }
+  }
 
   return (
-    <>
-      {/* Polite live region — field-level errors announced after interaction */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="false"
-        className={styles.srOnly}
-      >
-        {successMessage}
-      </div>
-
-      {/* Assertive live region — submit error summary announced immediately */}
-      <div
-        ref={assertiveLiveRef}
-        role="alert"
-        aria-live="assertive"
-        aria-atomic="true"
-        className={styles.srOnly}
-      />
-
+    <main>
+      <h1>Invoice</h1>
+      {submitted && (
+        <p role="status" aria-live="polite">
+          Invoice submitted successfully.
+        </p>
+      )}
       <form
         noValidate
         onSubmit={handleSubmit}
-        className={styles.form}
-        aria-label="Invoice form"
+        aria-describedby="form-errors"
       >
-        <h1 className={styles.title}>New Invoice</h1>
-
-        {/* ── Invoice Number ─────────────────────────────────────────── */}
-        <div className={styles.fieldGroup}>
-          <label htmlFor="invoice-number" className={styles.label}>
-            Invoice Number <span aria-hidden="true">*</span>
-          </label>
+        {/* Client name */}
+        <div className="field-group">
+          <label htmlFor="client-name">Client Name</label>
           <input
-            id="invoice-number"
+            id="client-name"
             type="text"
-            value={state.invoiceNumber}
-            onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
-            aria-describedby="invoice-number-error"
-            aria-invalid={!!errors.invoiceNumber}
-            aria-required="true"
-            className={styles.input}
-            placeholder="INV-001"
+            value={state.clientName}
+            aria-describedby="form-errors"
+            onChange={(e) =>
+              dispatch({ type: 'SET_FIELD', field: 'clientName', value: e.target.value })
+            }
           />
-          <ValidationError id="invoice-number-error" message={errors.invoiceNumber} />
         </div>
 
-        {/* ── Line Items ─────────────────────────────────────────────── */}
+        {/* Notes */}
+        <div className="field-group">
+          <label htmlFor="notes">Notes</label>
+          <textarea
+            id="notes"
+            value={state.notes}
+            onChange={(e) =>
+              dispatch({ type: 'SET_FIELD', field: 'notes', value: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Currency */}
+        <CurrencyDropdown />
+
+        {/* Line items */}
         <LineItems />
 
-        {/* ── Currency ──────────────────────────────────────────────── */}
-        <div className={styles.fieldGroup}>
-          <label htmlFor="currency-trigger" className={styles.label}>
-            Currency
-          </label>
-          <CurrencyDropdown
-            id="currency-trigger"
-            value={state.currency}
-            onChange={(currency) => dispatch({ type: 'SET_CURRENCY', currency })}
-          />
-        </div>
+        {/* Persistent live region — always in DOM, never conditionally mounted */}
+        <ValidationError id="form-errors" messages={state.errors} />
 
-        {/* ── Issue Date ────────────────────────────────────────────── */}
-        <div className={styles.fieldGroup}>
-          <label htmlFor="issue-date" className={styles.label}>
-            Issue Date <span aria-hidden="true">*</span>
-          </label>
-          <input
-            id="issue-date"
-            type="date"
-            value={state.issueDate}
-            onChange={(e) => handleFieldChange('issueDate', e.target.value)}
-            aria-describedby="issue-date-error"
-            aria-invalid={!!errors.issueDate}
-            aria-required="true"
-            className={styles.input}
-          />
-          <ValidationError id="issue-date-error" message={errors.issueDate} />
-        </div>
-
-        {/* ── Due Date ──────────────────────────────────────────────── */}
-        <div className={styles.fieldGroup}>
-          <label htmlFor="due-date" className={styles.label}>
-            Due Date <span aria-hidden="true">*</span>
-          </label>
-          <input
-            id="due-date"
-            type="date"
-            value={state.dueDate}
-            onChange={(e) => handleFieldChange('dueDate', e.target.value)}
-            aria-describedby="due-date-error"
-            aria-invalid={!!errors.dueDate}
-            aria-required="true"
-            className={styles.input}
-          />
-          <ValidationError id="due-date-error" message={errors.dueDate} />
-        </div>
-
-        {/* ── Submit ────────────────────────────────────────────────── */}
-        <button type="submit" className={styles.submitBtn}>
-          Save Invoice
-        </button>
-
-        {successMessage && (
-          <p className={styles.successMessage} role="status">
-            {successMessage}
-          </p>
-        )}
+        <button type="submit">Submit Invoice</button>
       </form>
-    </>
+    </main>
   );
 }

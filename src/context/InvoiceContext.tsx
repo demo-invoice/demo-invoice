@@ -1,71 +1,50 @@
-/**
- * InvoiceContext — typed reducer + React context for invoice state.
- *
- * The ActionType discriminated union uses ONLY these exact string literals:
- *   UPDATE_INVOICE_FIELD | ADD_LINE_ITEM | REMOVE_LINE_ITEM | UPDATE_LINE_ITEM | SET_CURRENCY
- *
- * TypeScript strict mode ensures any unrecognised string literal is a compile error.
- */
-import {
+import React, {
   createContext,
   useContext,
   useReducer,
   type ReactNode,
 } from 'react';
+import type { InvoiceState, InvoiceAction, StringField } from '../types/invoice';
 
-export interface LineItem {
-  id: string;
-  description: string;
-  quantity: string;
-  rate: string;
-}
-
-export interface InvoiceState {
-  invoiceNumber: string;
-  issueDate: string;
-  dueDate: string;
-  currency: string;
-  lineItems: LineItem[];
-}
-
-// ── Discriminated union — ONLY these exact string literals are valid ──────────
-export type InvoiceAction =
-  | { type: 'UPDATE_INVOICE_FIELD'; field: keyof Omit<InvoiceState, 'lineItems' | 'currency'>; value: string }
-  | { type: 'ADD_LINE_ITEM' }
-  | { type: 'REMOVE_LINE_ITEM'; id: string }
-  | { type: 'UPDATE_LINE_ITEM'; id: string; field: keyof Omit<LineItem, 'id'>; value: string }
-  | { type: 'SET_CURRENCY'; currency: string };
+/** Whitelisted string fields to prevent prototype pollution. */
+const STRING_FIELDS = new Set<StringField>(['clientName', 'notes', 'currency']);
 
 const initialState: InvoiceState = {
-  invoiceNumber: '',
-  issueDate: '',
-  dueDate: '',
+  clientName: '',
+  notes: '',
   currency: 'USD',
   lineItems: [],
+  errors: [],
 };
 
-/** Pure reducer — exhaustive switch over the discriminated union. */
+/**
+ * Pure reducer for invoice state.
+ * SET_FIELD only updates whitelisted string fields.
+ */
 function invoiceReducer(state: InvoiceState, action: InvoiceAction): InvoiceState {
   switch (action.type) {
-    case 'UPDATE_INVOICE_FIELD':
+    case 'SET_FIELD': {
+      if (!STRING_FIELDS.has(action.field)) return state;
       return { ...state, [action.field]: action.value };
-
+    }
+    case 'SET_ERRORS':
+      return { ...state, errors: action.errors };
+    case 'CLEAR_ERRORS':
+      return { ...state, errors: [] };
     case 'ADD_LINE_ITEM': {
-      const newItem: LineItem = {
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      const newItem = {
+        id: crypto.randomUUID(),
         description: '',
-        quantity: '',
-        rate: '',
+        quantity: 1,
+        rate: 0,
       };
       return { ...state, lineItems: [...state.lineItems, newItem] };
     }
-
     case 'REMOVE_LINE_ITEM':
       return {
         ...state,
         lineItems: state.lineItems.filter((item) => item.id !== action.id),
       };
-
     case 'UPDATE_LINE_ITEM':
       return {
         ...state,
@@ -73,9 +52,8 @@ function invoiceReducer(state: InvoiceState, action: InvoiceAction): InvoiceStat
           item.id === action.id ? { ...item, [action.field]: action.value } : item
         ),
       };
-
-    case 'SET_CURRENCY':
-      return { ...state, currency: action.currency };
+    default:
+      return state;
   }
 }
 
@@ -86,7 +64,9 @@ interface InvoiceContextValue {
 
 const InvoiceContext = createContext<InvoiceContextValue | null>(null);
 
-/** Provider — wrap the app with this to give all children access to invoice state. */
+/**
+ * Provides invoice state and dispatch to the component tree.
+ */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, initialState);
   return (
@@ -97,11 +77,13 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * useInvoice — consume invoice state and dispatch from any child component.
+ * Hook to consume InvoiceContext.
  * Throws if used outside InvoiceProvider.
  */
 export function useInvoice(): InvoiceContextValue {
   const ctx = useContext(InvoiceContext);
-  if (!ctx) throw new Error('useInvoice must be used within an InvoiceProvider');
+  if (!ctx) {
+    throw new Error('useInvoice must be used within an InvoiceProvider');
+  }
   return ctx;
 }

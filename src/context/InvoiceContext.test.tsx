@@ -1,89 +1,108 @@
-/**
- * Tests for InvoiceContext reducer — verifies all typed action literals
- * produce the correct state transitions.
- */
-import { describe, it, expect } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+// vi is imported explicitly — vitest globals are disabled (globals: false in vite.config.ts)
+import { describe, it, expect, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { InvoiceProvider, useInvoice } from './InvoiceContext';
 
-// Helper component that exposes dispatch for testing
-function TestConsumer({ onRender }: { onRender: (ctx: ReturnType<typeof useInvoice>) => void }) {
-  const ctx = useInvoice();
-  onRender(ctx);
-  return <div data-testid="state">{JSON.stringify(ctx.state)}</div>;
-}
+/** JSX wrapper for renderHook — must be .tsx to support JSX syntax. */
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <InvoiceProvider>{children}</InvoiceProvider>
+);
 
-describe('InvoiceContext reducer', () => {
-  it('UPDATE_INVOICE_FIELD updates the correct field', () => {
-    let ctx!: ReturnType<typeof useInvoice>;
-    render(
-      <InvoiceProvider>
-        <TestConsumer onRender={(c) => { ctx = c; }} />
-      </InvoiceProvider>
-    );
-    act(() => ctx.dispatch({ type: 'UPDATE_INVOICE_FIELD', field: 'invoiceNumber', value: 'INV-001' }));
-    expect(JSON.parse(screen.getByTestId('state').textContent!).invoiceNumber).toBe('INV-001');
+describe('InvoiceContext', () => {
+  it('provides initial state', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    expect(result.current.state.clientName).toBe('');
+    expect(result.current.state.notes).toBe('');
+    expect(result.current.state.currency).toBe('USD');
+    expect(result.current.state.lineItems).toEqual([]);
+    expect(result.current.state.errors).toEqual([]);
   });
 
-  it('ADD_LINE_ITEM appends a new item', () => {
-    let ctx!: ReturnType<typeof useInvoice>;
-    render(
-      <InvoiceProvider>
-        <TestConsumer onRender={(c) => { ctx = c; }} />
-      </InvoiceProvider>
-    );
-    act(() => ctx.dispatch({ type: 'ADD_LINE_ITEM' }));
-    const state = JSON.parse(screen.getByTestId('state').textContent!);
-    expect(state.lineItems).toHaveLength(1);
+  it('SET_FIELD updates clientName', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_FIELD', field: 'clientName', value: 'Acme Corp' });
+    });
+    expect(result.current.state.clientName).toBe('Acme Corp');
+  });
+
+  it('SET_FIELD updates notes', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_FIELD', field: 'notes', value: 'Net 30' });
+    });
+    expect(result.current.state.notes).toBe('Net 30');
+  });
+
+  it('SET_FIELD updates currency', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_FIELD', field: 'currency', value: 'EUR' });
+    });
+    expect(result.current.state.currency).toBe('EUR');
+  });
+
+  it('SET_ERRORS sets errors array', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_ERRORS', errors: ['Client name is required'] });
+    });
+    expect(result.current.state.errors).toEqual(['Client name is required']);
+  });
+
+  it('CLEAR_ERRORS empties errors array', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_ERRORS', errors: ['Some error'] });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'CLEAR_ERRORS' });
+    });
+    expect(result.current.state.errors).toEqual([]);
+  });
+
+  it('ADD_LINE_ITEM adds a line item', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'ADD_LINE_ITEM' });
+    });
+    expect(result.current.state.lineItems).toHaveLength(1);
+    expect(result.current.state.lineItems[0].description).toBe('');
+    expect(result.current.state.lineItems[0].quantity).toBe(1);
+    expect(result.current.state.lineItems[0].rate).toBe(0);
   });
 
   it('REMOVE_LINE_ITEM removes the correct item', () => {
-    let ctx!: ReturnType<typeof useInvoice>;
-    render(
-      <InvoiceProvider>
-        <TestConsumer onRender={(c) => { ctx = c; }} />
-      </InvoiceProvider>
-    );
-    act(() => ctx.dispatch({ type: 'ADD_LINE_ITEM' }));
-    act(() => ctx.dispatch({ type: 'ADD_LINE_ITEM' }));
-    const stateAfterAdd = JSON.parse(screen.getByTestId('state').textContent!);
-    const firstId = stateAfterAdd.lineItems[0].id;
-    act(() => ctx.dispatch({ type: 'REMOVE_LINE_ITEM', id: firstId }));
-    const stateAfterRemove = JSON.parse(screen.getByTestId('state').textContent!);
-    expect(stateAfterRemove.lineItems).toHaveLength(1);
-    expect(stateAfterRemove.lineItems[0].id).not.toBe(firstId);
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'ADD_LINE_ITEM' });
+      result.current.dispatch({ type: 'ADD_LINE_ITEM' });
+    });
+    const idToRemove = result.current.state.lineItems[0].id;
+    act(() => {
+      result.current.dispatch({ type: 'REMOVE_LINE_ITEM', id: idToRemove });
+    });
+    expect(result.current.state.lineItems).toHaveLength(1);
+    expect(result.current.state.lineItems[0].id).not.toBe(idToRemove);
   });
 
-  it('UPDATE_LINE_ITEM updates the correct field on the correct item', () => {
-    let ctx!: ReturnType<typeof useInvoice>;
-    render(
-      <InvoiceProvider>
-        <TestConsumer onRender={(c) => { ctx = c; }} />
-      </InvoiceProvider>
-    );
-    act(() => ctx.dispatch({ type: 'ADD_LINE_ITEM' }));
-    const state = JSON.parse(screen.getByTestId('state').textContent!);
-    const id = state.lineItems[0].id;
-    act(() => ctx.dispatch({ type: 'UPDATE_LINE_ITEM', id, field: 'description', value: 'Widget' }));
-    const updated = JSON.parse(screen.getByTestId('state').textContent!);
-    expect(updated.lineItems[0].description).toBe('Widget');
+  it('UPDATE_LINE_ITEM updates the correct field', () => {
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'ADD_LINE_ITEM' });
+    });
+    const id = result.current.state.lineItems[0].id;
+    act(() => {
+      result.current.dispatch({ type: 'UPDATE_LINE_ITEM', id, field: 'description', value: 'Widget' });
+    });
+    expect(result.current.state.lineItems[0].description).toBe('Widget');
   });
 
-  it('SET_CURRENCY updates the currency', () => {
-    let ctx!: ReturnType<typeof useInvoice>;
-    render(
-      <InvoiceProvider>
-        <TestConsumer onRender={(c) => { ctx = c; }} />
-      </InvoiceProvider>
-    );
-    act(() => ctx.dispatch({ type: 'SET_CURRENCY', currency: 'EUR' }));
-    const state = JSON.parse(screen.getByTestId('state').textContent!);
-    expect(state.currency).toBe('EUR');
-  });
-
-  it('throws when useInvoice is used outside provider', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => render(<TestConsumer onRender={() => {}} />)).toThrow(
+  it('useInvoice throws outside provider', () => {
+    // Suppress React error boundary noise
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect(() => renderHook(() => useInvoice())).toThrow(
       'useInvoice must be used within an InvoiceProvider'
     );
     spy.mockRestore();
