@@ -1,0 +1,51 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # No package-lock.json is committed to this repo, so the npm cache
+          # will always be a cold miss on first run. cache-dependency-path is
+          # set to package.json so repeated runs with identical deps can benefit
+          # from a warm cache. A restore-keys fallback prevents a hard failure
+          # on cache miss.
+          cache-dependency-path: '**/package.json'
+
+      - name: Restore npm cache (fallback for cold cache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      # Install dependencies. npm install (not npm install) is intentional:
+      # no package-lock.json is committed, and npm install hard-fails without one.
+      # npm install resolves deps fresh and regenerates the lockfile in the runner.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod --dir=dist
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

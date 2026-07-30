@@ -1,0 +1,49 @@
+name: Verify
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # No package-lock.json is committed to this repo, so the npm cache
+          # will always be a cold miss on first run. cache-dependency-path is
+          # set to package.json so at least repeated runs with identical deps
+          # can benefit from a warm cache. A restore-keys fallback is provided
+          # so a cache miss never hard-fails the job.
+          cache-dependency-path: '**/package.json'
+
+      - name: Restore npm cache (fallback for cold cache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      # Install dependencies. npm install (not npm install) is intentional:
+      # no package-lock.json is committed, and npm install hard-fails without one.
+      # npm install resolves deps fresh and regenerates the lockfile in the runner.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+        env:
+          VITE_DEPLOY_URL: ${{ secrets.VITE_DEPLOY_URL }}
