@@ -31,4 +31,4 @@ jobs:
       - name: Run tests
         run: npm test
         env:
-          VITE_DEPLOY_URL: ${{ secrets.VITE_DEPLOY_URL || '' }}
+          VITE_DEPLOY_URL: ${{ secrets.VITE_DEPLOY_URL }}
