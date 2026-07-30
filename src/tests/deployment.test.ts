@@ -3,42 +3,32 @@ import { describe, it, expect } from 'vitest';
 /**
  * Smoke test suite for the live Netlify deployment.
  *
- * Fails loudly if VITE_DEPLOY_URL is not set, so CI surfaces the
- * misconfiguration rather than silently passing.
+ * The env-var check test fails loudly if VITE_DEPLOY_URL is not set,
+ * so CI surfaces the misconfiguration rather than silently passing.
  *
- * Requires VITE_DEPLOY_URL to be configured as a repository secret and
- * injected into the CI environment before this suite is executed.
+ * The network-dependent tests are skipped when VITE_DEPLOY_URL is absent
+ * (e.g. on branches where the deployment secret is not configured) and
+ * run in full when the secret IS present.
  */
-describe('Deployment smoke tests', () => {
-  const deployUrl = import.meta.env.VITE_DEPLOY_URL as string | undefined;
+const deployUrl = import.meta.env.VITE_DEPLOY_URL as string | undefined;
 
+describe('Deployment smoke tests', () => {
   it('VITE_DEPLOY_URL env var is configured', () => {
     if (!deployUrl) {
       throw new Error(
         'VITE_DEPLOY_URL must be set in CI — configure it as a repository secret'
       );
     }
-    expect(deployUrl).toMatch(/^\/\//);
+    expect(deployUrl).toMatch(/^https:\/\//);
   });
 
-  it('live URL returns HTTP 200', async () => {
-    if (!deployUrl) {
-      throw new Error(
-        'VITE_DEPLOY_URL must be set in CI — configure it as a repository secret'
-      );
-    }
-
+  it.skipIf(!deployUrl)('live URL returns HTTP 200', async () => {
     // No try/catch — a network error must propagate as a test failure.
-    const response = await fetch(deployUrl);
+    const response = await fetch(deployUrl!);
     expect(response.status).toBe(200);
   });
 
-  it('live URL is served over HTTPS', () => {
-    if (!deployUrl) {
-      throw new Error(
-        'VITE_DEPLOY_URL must be set in CI — configure it as a repository secret'
-      );
-    }
-    expect(deployUrl.startsWith('https://')).toBe(true);
+  it.skipIf(!deployUrl)('live URL is served over HTTPS', () => {
+    expect(deployUrl!.startsWith('https://')).toBe(true);
   });
 });
