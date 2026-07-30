@@ -1,0 +1,38 @@
+# Netlify build configuration
+# Platform decision: Netlify subdomain deploy (working assumption, confidence 0.35 — flag in PR)
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA client-side routing: redirect all paths to index.html with 200 so
+# React Router / direct URL navigation never returns a 404 from Netlify's CDN.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers applied to all responses.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Enforce HTTPS and prevent mixed-content issues.
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+    # CSP: allow same-origin scripts/styles plus blob: URLs required for
+    # client-side PDF generation (jsPDF creates blob: object URLs for download).
+    # 'unsafe-inline' is included for style-src to support Vite's injected styles
+    # in production; tighten once a nonce/hash strategy is adopted.
+    Content-Security-Policy = "default-src 'self' blob:; script-src 'self' blob: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+
+    # Prevent MIME-type sniffing.
+    X-Content-Type-Options = "nosniff"
+
+    # Deny framing to prevent clickjacking.
+    X-Frame-Options = "DENY"
+
+    # Disable referrer leakage across origins.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Disable browser features not needed by this app.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

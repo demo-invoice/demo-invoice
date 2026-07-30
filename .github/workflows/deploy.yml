@@ -1,0 +1,59 @@
+# CI/CD: build and deploy to Netlify on every push to main.
+#
+# Required GitHub repository secrets:
+#   NETLIFY_AUTH_TOKEN  — Personal access token from Netlify user settings
+#   NETLIFY_SITE_ID     — API ID from Netlify site settings → General → Site details
+#
+# ⚠️  Platform assumption (confidence 0.35): Netlify subdomain deploy.
+# No custom domain is configured until explicitly provided. Flag in PR.
+
+name: Deploy to Netlify
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          # Fallback so a cache miss on first run (no lockfile yet) never fails the job.
+          cache-dependency-path: '**/package.json'
+
+      - name: Install dependencies
+        # Use `npm install` (not `npm install`) — greenfield repo may not have a
+        # committed package-lock.json; `npm install` hard-fails without a matching lockfile.
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      # NOTE: A `test` step is intentionally omitted here.
+      # package.json carries a safe no-op test script as a safety net, but
+      # running it in this workflow adds no value. Add a dedicated test job
+      # once a real test runner (vitest) is configured.
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: './dist'
+          production-branch: main
+          production-deploy: true
+          deploy-message: "Deploy from GitHub Actions — ${{ github.sha }}"
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 10
