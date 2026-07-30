@@ -2,8 +2,7 @@
  * pdfDownload utility tests
  *
  * Verifies proactive Safari feature-detection and the correct download path
- * for both Safari and non-Safari browsers.  navigator.vendor is not defined
- * in jsdom, so tests use Object.defineProperty to simulate each environment.
+ * for both Safari and non-Safari browsers.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -74,18 +73,18 @@ describe('downloadPdf() — Safari path', () => {
     expect(openSpy).toHaveBeenCalledWith('blob:http://localhost/abc', '_blank');
   });
 
-  it('does NOT create an anchor element for Safari', () => {
-    vi.spyOn(window, 'open').mockReturnValue(null);
-    const createElementSpy = vi.spyOn(document, 'createElement');
+  it('does NOT call window.open with anything other than the blob url for Safari', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     downloadPdf('blob:http://localhost/abc', 'invoice.pdf');
-    // createElement may be called for the vendor-check anchor, but must NOT
-    // be called with 'a' for the download anchor after the Safari branch.
-    const anchorCallsAfterDetect = createElementSpy.mock.calls.filter(
-      ([tag]) => tag === 'a',
-    );
-    // The only 'a' createElement call is inside isSafariBrowser for the
-    // download-attr check — the download anchor path is skipped.
-    expect(anchorCallsAfterDetect.length).toBeLessThanOrEqual(1);
+    expect(openSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT create a download anchor element for Safari', () => {
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    downloadPdf('blob:http://localhost/abc', 'invoice.pdf');
+    // The download anchor is appended to body only on the non-Safari path
+    expect(appendSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -117,7 +116,6 @@ describe('downloadPdf() — Chrome/Firefox path', () => {
       if (tag === 'a') anchors.push(el as HTMLAnchorElement);
       return el;
     });
-    // Stub click so jsdom doesn't complain.
     vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(() => {});
 
     downloadPdf('blob:http://localhost/xyz', 'my-invoice.pdf');
@@ -125,5 +123,16 @@ describe('downloadPdf() — Chrome/Firefox path', () => {
     const downloadAnchor = anchors.find((a) => a.download === 'my-invoice.pdf');
     expect(downloadAnchor).toBeDefined();
     expect(downloadAnchor?.href).toContain('blob:http://localhost/xyz');
+  });
+
+  it('appends the anchor to document.body and removes it after click', () => {
+    vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(() => {});
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    const removeSpy = vi.spyOn(document.body, 'removeChild');
+
+    downloadPdf('blob:http://localhost/xyz', 'invoice.pdf');
+
+    expect(appendSpy).toHaveBeenCalledTimes(1);
+    expect(removeSpy).toHaveBeenCalledTimes(1);
   });
 });

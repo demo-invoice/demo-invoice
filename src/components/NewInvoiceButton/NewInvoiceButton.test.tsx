@@ -12,7 +12,11 @@
 
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { InvoiceProvider, INVOICE_STORAGE_KEY, makeDefaultState } from '../../context/InvoiceContext';
+import {
+  InvoiceProvider,
+  INVOICE_STORAGE_KEY,
+  makeDefaultState,
+} from '../../context/InvoiceContext';
 import { NewInvoiceButton } from './NewInvoiceButton';
 
 // ---------------------------------------------------------------------------
@@ -66,6 +70,15 @@ describe('NewInvoiceButton', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Rendering
+  // -------------------------------------------------------------------------
+
+  it('renders a button with text "New Invoice"', () => {
+    renderWithProvider();
+    expect(screen.getByRole('button', { name: 'New Invoice' })).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
   // (a) removeItem is called; setItem is NOT called after reset
   // -------------------------------------------------------------------------
 
@@ -77,13 +90,12 @@ describe('NewInvoiceButton', () => {
 
   it('does NOT call localStorage.setItem after a reset', async () => {
     renderWithProvider();
-    // Allow any initial-mount effects to settle first.
+    // Allow any initial-mount effects to settle.
     await act(async () => {});
     setItemSpy.mockClear();
 
     await act(async () => { clickNewInvoice(); });
 
-    // setItem must not have been called with the storage key after the reset.
     const setItemCallsForKey = (setItemSpy.mock.calls as [string, string][]).filter(
       ([key]) => key === INVOICE_STORAGE_KEY,
     );
@@ -91,7 +103,7 @@ describe('NewInvoiceButton', () => {
   });
 
   // -------------------------------------------------------------------------
-  // (b) makeDefaultState() is called at dispatch time — Issue Date is current
+  // (b) makeDefaultState() returns today's date at call time
   // -------------------------------------------------------------------------
 
   it('makeDefaultState() returns today\'s date as issueDate', () => {
@@ -100,12 +112,10 @@ describe('NewInvoiceButton', () => {
     expect(defaultState.issueDate).toBe(today);
   });
 
-  it('Issue Date in reset state reflects the date of the reset, not module-load time', async () => {
-    // Simulate a date change by mocking Date before the click.
+  it('Issue Date in reset state reflects the date at reset time, not module-load time', () => {
     const futureDate = '2099-12-31';
     const OriginalDate = globalThis.Date;
 
-    // Spy on Date constructor to return a fixed future date for toISOString.
     const mockDate = new OriginalDate(futureDate + 'T00:00:00.000Z');
     vi.spyOn(globalThis, 'Date').mockImplementation(
       (...args: ConstructorParameters<typeof Date>) =>
@@ -123,7 +133,7 @@ describe('NewInvoiceButton', () => {
   });
 
   // -------------------------------------------------------------------------
-  // (c) _lastAction guard prevents spurious write
+  // (c) _lastAction guard prevents spurious write after RESET_INVOICE
   // -------------------------------------------------------------------------
 
   it('persistence effect removes the key and does not re-persist after RESET_INVOICE', async () => {
@@ -132,8 +142,7 @@ describe('NewInvoiceButton', () => {
     setItemSpy.mockClear();
 
     renderWithProvider();
-    // Let mount effects settle (initial load — _lastAction is undefined, so
-    // the effect returns early without calling setItem).
+    // Let mount effects settle (_lastAction is undefined → effect returns early).
     await act(async () => {});
     setItemSpy.mockClear();
     removeItemSpy.mockClear();
@@ -150,5 +159,11 @@ describe('NewInvoiceButton', () => {
       ([key]) => key === INVOICE_STORAGE_KEY,
     );
     expect(setItemCallsForKey).toHaveLength(0);
+  });
+
+  it('does not call removeItem on initial render (no reset dispatched)', async () => {
+    renderWithProvider();
+    await act(async () => {});
+    expect(removeItemSpy).not.toHaveBeenCalled();
   });
 });
