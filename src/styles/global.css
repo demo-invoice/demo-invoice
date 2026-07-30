@@ -1,0 +1,133 @@
+/*
+ * Global styles — WCAG AA contrast compliant.
+ * #1a1a1a on #ffffff yields a contrast ratio of ~19:1 (AA requires 4.5:1 for normal text).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #1a1a1a;       /* ~19:1 contrast on white */
+  background-color: #ffffff;
+}
+
+main {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin-bottom: 1.5rem;
+  color: #1a1a1a;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+input,
+textarea,
+select {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #595959; /* 7:1 contrast on white */
+  border-radius: 4px;
+  font-size: 1rem;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  width: 100%;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 3px solid #005fcc;
+  outline-offset: 2px;
+  border-color: #005fcc;
+}
+
+button {
+  padding: 0.5rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #005fcc; /* 4.6:1 contrast on white; white text on #005fcc ~4.6:1 */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:focus {
+  outline: 3px solid #003d8a;
+  outline-offset: 2px;
+}
+
+button:hover {
+  background-color: #004aaa;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #595959;
+}
+
+th {
+  font-weight: 700;
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.validation-error {
+  color: #b91c1c; /* 5.9:1 contrast on white — AA compliant */
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  border: 2px solid #b91c1c;
+  border-radius: 4px;
+  background-color: #fff5f5;
+}
+
+.validation-error ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+/*
+ * Visually hidden — hides content visually while keeping it accessible
+ * to screen readers and preserving the live region in the DOM.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

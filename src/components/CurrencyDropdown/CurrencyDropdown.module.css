@@ -1,0 +1,66 @@
+@import '../../styles/tokens.css';
+
+.wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1rem;
+  cursor: pointer;
+  min-width: 5rem;
+}
+
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.chevron {
+  font-size: 0.625rem;
+  margin-left: auto;
+}
+
+.listbox {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 100;
+  min-width: 100%;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.option {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.option:hover {
+  background: var(--color-btn-secondary-bg);
+}
+
+.optionActive {
+  background: var(--color-btn-secondary-hover-bg);
+  outline: none;
+}
+
+.optionSelected {
+  font-weight: 600;
+  color: var(--color-btn-primary-bg);
+}

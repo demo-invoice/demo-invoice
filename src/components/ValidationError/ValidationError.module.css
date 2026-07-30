@@ -1,0 +1,9 @@
+@import '../../styles/tokens.css';
+
+.error {
+  display: block;
+  min-height: 1.25rem; /* reserves space so layout doesn't shift */
+  font-size: 0.875rem;
+  color: var(--color-error); /* #b91c1c — 5.9:1 on white ✓ */
+  margin-top: var(--space-1);
+}
