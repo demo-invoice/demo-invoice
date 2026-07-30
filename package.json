@@ -1,0 +1,13 @@
+{
+  "name": "demo-invoice",
+  "version": "0.0.1",
+  "description": "Demo invoice application — print stylesheet and browser print fallback.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

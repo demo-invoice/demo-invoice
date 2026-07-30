@@ -1,0 +1,59 @@
+/*
+ * print.css — Browser print fallback stylesheet (T14)
+ *
+ * Selector `.invoice-preview` confirmed from T7 InvoicePreview component.
+ * See TESTING.md for manual verification steps.
+ *
+ * No runtime JS dependencies — this file is CSS-only and is imported
+ * directly by the application entry point or InvoicePreview component.
+ */
+
+@media print {
+  /* ── Page geometry ─────────────────────────────────────────────────── */
+  @page {
+    margin: 1cm;
+  }
+
+  /* ── Hide UI chrome ─────────────────────────────────────────────────
+   * Explicitly hide known chrome elements, then use the broad
+   * body > *:not(.invoice-preview) rule to catch any unlisted wrappers.
+   */
+  header,
+  nav,
+  form,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body > *:not(.invoice-preview) {
+    display: none !important;
+  }
+
+  /* ── Invoice preview panel ──────────────────────────────────────────
+   * Remove decorative shadow so the printed page looks clean.
+   */
+  .invoice-preview {
+    box-shadow: none !important;
+  }
+
+  /* ── Table row page-break rules ─────────────────────────────────────
+   * page-break-inside: avoid  — legacy Safari / older browsers
+   * break-inside: avoid       — modern standard
+   */
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* ── Keep table header / footer with content ────────────────────────
+   * Repeat header rows on each printed page where supported.
+   */
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
