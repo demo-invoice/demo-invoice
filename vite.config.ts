@@ -3,12 +3,14 @@ import react from '@vitejs/plugin-react';
 
 /**
  * Vite configuration with Vitest settings.
- * globals: false — vi must be imported explicitly in all test files.
+ * globals: true — required so @testing-library/jest-dom's top-level expect.extend() call
+ * in test-setup.ts finds `expect` as a global. Individual test files may still import
+ * { describe, it, expect, vi } explicitly from 'vitest' — both styles work with globals: true.
  */
 export default defineConfig({
   plugins: [react()],
   test: {
-    globals: false,
+    globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
   },
