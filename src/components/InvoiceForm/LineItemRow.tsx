@@ -1,119 +1,75 @@
-/**
- * LineItemRow — a single row in the line-items table.
- *
- * Accessibility contract:
- *   - Every input has a visually-hidden <label> (not just placeholder).
- *   - Remove button has a dynamic aria-label including the row number.
- *   - Validation errors wired via aria-describedby.
- */
-import { useInvoice } from '../../context/InvoiceContext';
+import type { RefObject } from 'react';
+import type { LineItem } from '../../types/invoice';
 import { ValidationError } from '../ValidationError/ValidationError';
 
-interface Props {
-  id: string;
+interface LineItemRowProps {
+  item: LineItem;
   index: number;
+  errors?: { description?: string; quantity?: string; rate?: string };
+  addItemButtonRef: RefObject<HTMLButtonElement>;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, field: keyof Omit<LineItem, 'id'>, value: string | number) => void;
 }
 
-export function LineItemRow({ id, index }: Props) {
-  const { state, dispatch } = useInvoice();
-  const item = state.lineItems.find((li) => li.id === id);
+export function LineItemRow({
+  item,
+  index,
+  errors,
+  addItemButtonRef,
+  onRemove,
+  onUpdate,
+}: LineItemRowProps) {
+  const descTrimmed = (item.description ?? '').trim();
+  const label = descTrimmed || `item ${index + 1}`;
 
-  if (!item) return null;
-
-  const rowNum = index + 1;
-
-  const descErrorId = `line-${id}-desc-error`;
-  const qtyErrorId = `line-${id}-qty-error`;
-  const rateErrorId = `line-${id}-rate-error`;
-
-  const descError = item.description.trim() === '' ? 'Description is required.' : '';
-  const qtyError =
-    item.quantity.trim() === '' || isNaN(Number(item.quantity))
-      ? 'Valid quantity is required.'
-      : '';
-  const rateError =
-    item.rate.trim() === '' || isNaN(Number(item.rate))
-      ? 'Valid rate is required.'
-      : '';
+  const handleRemove = () => {
+    onRemove(item.id);
+    queueMicrotask(() => addItemButtonRef.current?.focus());
+  };
 
   return (
     <tr>
       <td>
-        <label htmlFor={`line-${id}-desc`} className="sr-only">
-          Description for item {rowNum}
-        </label>
+        <label htmlFor={`desc-${item.id}`}>Description for {label}</label>
         <input
-          id={`line-${id}-desc`}
+          id={`desc-${item.id}`}
           type="text"
           value={item.description}
-          aria-describedby={descErrorId}
-          aria-invalid={descError ? true : undefined}
-          placeholder="Description"
-          onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              id,
-              field: 'description',
-              value: e.target.value,
-            })
-          }
+          aria-describedby={`desc-error-${item.id}`}
+          onChange={(e) => onUpdate(item.id, 'description', e.target.value)}
         />
-        <ValidationError id={descErrorId} message={descError} />
+        <ValidationError id={`desc-error-${item.id}`} messages={errors?.description ? [errors.description] : []} />
       </td>
-
       <td>
-        <label htmlFor={`line-${id}-qty`} className="sr-only">
-          Quantity for item {rowNum}
-        </label>
+        <label htmlFor={`qty-${item.id}`}>Quantity for {label}</label>
         <input
-          id={`line-${id}-qty`}
-          type="text"
-          inputMode="numeric"
-          value={item.quantity}
-          aria-describedby={qtyErrorId}
-          aria-invalid={qtyError ? true : undefined}
-          placeholder="Qty"
-          onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              id,
-              field: 'quantity',
-              value: e.target.value,
-            })
-          }
+          id={`qty-${item.id}`}
+          type="number"
+          value={String(item.quantity).trim()}
+          aria-describedby={`qty-error-${item.id}`}
+          onChange={(e) => onUpdate(item.id, 'quantity', Number(e.target.value))}
         />
-        <ValidationError id={qtyErrorId} message={qtyError} />
+        <ValidationError id={`qty-error-${item.id}`} messages={errors?.quantity ? [errors.quantity] : []} />
       </td>
-
       <td>
-        <label htmlFor={`line-${id}-rate`} className="sr-only">
-          Rate for item {rowNum}
-        </label>
+        <label htmlFor={`rate-${item.id}`}>Rate for {label}</label>
         <input
-          id={`line-${id}-rate`}
-          type="text"
-          inputMode="decimal"
-          value={item.rate}
-          aria-describedby={rateErrorId}
-          aria-invalid={rateError ? true : undefined}
-          placeholder="Rate"
-          onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              id,
-              field: 'rate',
-              value: e.target.value,
-            })
-          }
+          id={`rate-${item.id}`}
+          type="number"
+          value={String(item.rate).trim()}
+          aria-describedby={`rate-error-${item.id}`}
+          onChange={(e) => onUpdate(item.id, 'rate', Number(e.target.value))}
         />
-        <ValidationError id={rateErrorId} message={rateError} />
+        <ValidationError id={`rate-error-${item.id}`} messages={errors?.rate ? [errors.rate] : []} />
       </td>
-
+      <td>
+        {(item.quantity * item.rate).toFixed(2)}
+      </td>
       <td>
         <button
           type="button"
-          aria-label={`Remove item ${rowNum}`}
-          onClick={() => dispatch({ type: 'REMOVE_LINE_ITEM', id })}
+          aria-label={`Remove ${label}`}
+          onClick={handleRemove}
         >
           Remove
         </button>
