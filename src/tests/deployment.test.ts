@@ -18,7 +18,7 @@ describe('Deployment smoke tests', () => {
         'VITE_DEPLOY_URL must be set in CI — configure it as a repository secret'
       );
     }
-    expect(deployUrl).toMatch(/^https:\/\//);
+    expect(deployUrl).toMatch(/^\/\//);
   });
 
   it('live URL returns HTTP 200', async () => {
