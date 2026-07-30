@@ -1,199 +1,186 @@
-import { type ChangeEvent, type FormEvent, useRef } from 'react';
+import { useRef } from 'react';
 import { useInvoice } from '../../context/InvoiceContext';
+import { LineItemList } from '../LineItems/LineItemList';
+import { CurrencyDropdown } from '../CurrencyDropdown/CurrencyDropdown';
 import { ValidationError } from './ValidationError';
-import { CurrencyDropdown } from './CurrencyDropdown';
-import { LineItems } from '../LineItems/LineItems';
+import type { SetFieldAction } from '../../types/invoice';
+import { v4 as uuidv4 } from 'uuid';
 
-/** Validates the invoice form and returns a map of field → error messages. */
-function validate(
-  state: ReturnType<typeof useInvoice>['state'],
-): Record<string, string[]> {
+function validate(state: ReturnType<typeof useInvoice>['state']) {
   const errors: Record<string, string[]> = {};
 
   if (!state.invoiceNumber.trim()) {
-    errors['invoiceNumber'] = ['Invoice number is required.'];
+    errors.invoiceNumber = ['Invoice number is required.'];
   }
-  if (!state.issueDate) {
-    errors['issueDate'] = ['Issue date is required.'];
+  if (!state.issueDate.trim()) {
+    errors.issueDate = ['Issue date is required.'];
   }
-  if (!state.dueDate) {
-    errors['dueDate'] = ['Due date is required.'];
-  } else if (state.issueDate && state.dueDate < state.issueDate) {
-    errors['dueDate'] = ['Due date must be on or after the issue date.'];
+  if (!state.dueDate.trim()) {
+    errors.dueDate = ['Due date is required.'];
   }
   if (!state.clientName.trim()) {
-    errors['clientName'] = ['Client name is required.'];
+    errors.clientName = ['Client name is required.'];
   }
   if (state.lineItems.length === 0) {
-    errors['lineItems'] = ['At least one line item is required.'];
+    errors.lineItems = ['At least one line item is required.'];
   }
 
   return errors;
 }
 
-/** Main invoice form with full accessibility compliance. */
 export function InvoiceForm() {
   const { state, dispatch } = useInvoice();
   const liveRegionRef = useRef<HTMLDivElement>(null);
 
-  function handleField(field: Parameters<typeof dispatch>[0] extends { type: 'SET_FIELD'; payload: { field: infer F } } ? F : never, value: string) {
-    dispatch({ type: 'SET_FIELD', payload: { field, value } });
+  function setField(field: SetFieldAction['payload']['field'], value: string) {
+    const action: SetFieldAction = { type: 'SET_FIELD', payload: { field, value } };
+    dispatch(action);
   }
 
-  function handleChange(
-    field: Parameters<typeof handleField>[0],
-  ) {
-    return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      handleField(field, e.target.value);
-  }
-
-  function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errors = validate(state);
 
-    // React 18 batching fix: clear first, then re-set after a tick so the
-    // aria-live region empties and refills — triggering screen reader re-announcement.
+    // Clear first, then set after a tick so React 18 batching doesn't suppress re-announcement
     dispatch({ type: 'CLEAR_ERRORS' });
     setTimeout(() => {
-      if (Object.keys(errors).length > 0) {
-        dispatch({ type: 'SET_ERRORS', payload: errors });
-      } else {
-        // Success path — could submit to API here
-        alert('Invoice submitted successfully!');
-      }
+      dispatch({ type: 'SET_ERRORS', payload: errors });
     }, 0);
   }
 
-  const e = state.errors;
+  const hasErrors = Object.keys(state.errors).length > 0;
 
   return (
-    <main>
-      <h1>Create Invoice</h1>
-
-      {/* Persistent aria-live region — always in DOM so screen readers register it on load */}
+    <form onSubmit={handleSubmit} noValidate aria-label="Invoice form">
+      {/* Persistent aria-live region — always in DOM */}
       <div
         ref={liveRegionRef}
         aria-live="polite"
         aria-atomic="true"
-        aria-relevant="additions text"
-        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+        id="form-errors"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
       >
-        {Object.keys(e).length > 0 && (
-          <span>
-            Form has {Object.keys(e).length} error
-            {Object.keys(e).length > 1 ? 's' : ''}. Please review and correct.
-          </span>
-        )}
+        {hasErrors && 'Please correct the errors below.'}
       </div>
 
-      <form onSubmit={handleSubmit} noValidate>
-        {/* Invoice Number */}
-        <div className="field">
-          <label htmlFor="invoiceNumber">Invoice Number</label>
-          <input
-            id="invoiceNumber"
-            type="text"
-            value={state.invoiceNumber}
-            onChange={handleChange('invoiceNumber')}
-            aria-describedby="invoiceNumber-error"
-            aria-invalid={!!e['invoiceNumber']}
-          />
-          {/* Always in DOM — empty when no error so aria-describedby ref is valid */}
-          <span id="invoiceNumber-error">
-            <ValidationError messages={e['invoiceNumber'] ?? []} />
-          </span>
-        </div>
+      <h1>Invoice</h1>
 
-        {/* Issue Date */}
-        <div className="field">
-          <label htmlFor="issueDate">Issue Date</label>
-          <input
-            id="issueDate"
-            type="date"
-            value={state.issueDate}
-            onChange={handleChange('issueDate')}
-            aria-describedby="issueDate-error"
-            aria-invalid={!!e['issueDate']}
-          />
-          <span id="issueDate-error">
-            <ValidationError messages={e['issueDate'] ?? []} />
-          </span>
-        </div>
+      {/* Invoice Number */}
+      <div className="field">
+        <label htmlFor="invoiceNumber">Invoice Number</label>
+        <input
+          id="invoiceNumber"
+          type="text"
+          value={state.invoiceNumber}
+          onChange={(e) => setField('invoiceNumber', e.target.value)}
+          aria-describedby="invoiceNumber-error"
+          aria-invalid={!!state.errors.invoiceNumber}
+        />
+        <span id="invoiceNumber-error">
+          <ValidationError messages={state.errors.invoiceNumber ?? []} />
+        </span>
+      </div>
 
-        {/* Due Date */}
-        <div className="field">
-          <label htmlFor="dueDate">Due Date</label>
-          <input
-            id="dueDate"
-            type="date"
-            value={state.dueDate}
-            onChange={handleChange('dueDate')}
-            aria-describedby="dueDate-error"
-            aria-invalid={!!e['dueDate']}
-          />
-          <span id="dueDate-error">
-            <ValidationError messages={e['dueDate'] ?? []} />
-          </span>
-        </div>
+      {/* Issue Date */}
+      <div className="field">
+        <label htmlFor="issueDate">Issue Date</label>
+        <input
+          id="issueDate"
+          type="date"
+          value={state.issueDate}
+          onChange={(e) => setField('issueDate', e.target.value)}
+          aria-describedby="issueDate-error"
+          aria-invalid={!!state.errors.issueDate}
+        />
+        <span id="issueDate-error">
+          <ValidationError messages={state.errors.issueDate ?? []} />
+        </span>
+      </div>
 
-        {/* Client Name */}
-        <div className="field">
-          <label htmlFor="clientName">Client Name</label>
-          <input
-            id="clientName"
-            type="text"
-            value={state.clientName}
-            onChange={handleChange('clientName')}
-            aria-describedby="clientName-error"
-            aria-invalid={!!e['clientName']}
-          />
-          <span id="clientName-error">
-            <ValidationError messages={e['clientName'] ?? []} />
-          </span>
-        </div>
+      {/* Due Date */}
+      <div className="field">
+        <label htmlFor="dueDate">Due Date</label>
+        <input
+          id="dueDate"
+          type="date"
+          value={state.dueDate}
+          onChange={(e) => setField('dueDate', e.target.value)}
+          aria-describedby="dueDate-error"
+          aria-invalid={!!state.errors.dueDate}
+        />
+        <span id="dueDate-error">
+          <ValidationError messages={state.errors.dueDate ?? []} />
+        </span>
+      </div>
 
-        {/* Currency */}
-        <div className="field">
-          <label htmlFor="currency-btn">Currency</label>
-          <CurrencyDropdown
-            id="currency-btn"
-            value={state.currency}
-            onChange={(val) => handleField('currency', val)}
-            aria-describedby="currency-error"
-          />
-          <span id="currency-error">
-            <ValidationError messages={e['currency'] ?? []} />
-          </span>
-        </div>
+      {/* Client Name */}
+      <div className="field">
+        <label htmlFor="clientName">Client Name</label>
+        <input
+          id="clientName"
+          type="text"
+          value={state.clientName}
+          onChange={(e) => setField('clientName', e.target.value)}
+          aria-describedby="clientName-error"
+          aria-invalid={!!state.errors.clientName}
+        />
+        <span id="clientName-error">
+          <ValidationError messages={state.errors.clientName ?? []} />
+        </span>
+      </div>
 
-        {/* Notes */}
-        <div className="field">
-          <label htmlFor="notes">Notes</label>
-          <textarea
-            id="notes"
-            value={state.notes}
-            onChange={handleChange('notes')}
-            rows={3}
-            aria-describedby="notes-error"
-          />
-          <span id="notes-error">
-            <ValidationError messages={e['notes'] ?? []} />
-          </span>
-        </div>
+      {/* Currency */}
+      <div className="field">
+        <label htmlFor="currency-combobox">Currency</label>
+        <CurrencyDropdown
+          id="currency-combobox"
+          value={state.currency}
+          onChange={(val) => setField('currency', val)}
+          aria-describedby="currency-error"
+        />
+        <span id="currency-error">
+          <ValidationError messages={state.errors.currency ?? []} />
+        </span>
+      </div>
 
-        {/* Line Items */}
-        <section aria-labelledby="line-items-heading">
-          <h2 id="line-items-heading">Line Items</h2>
-          <LineItems />
-          <span id="lineItems-error">
-            <ValidationError messages={e['lineItems'] ?? []} />
-          </span>
-        </section>
+      {/* Notes */}
+      <div className="field">
+        <label htmlFor="notes">Notes</label>
+        <textarea
+          id="notes"
+          value={state.notes}
+          onChange={(e) => setField('notes', e.target.value)}
+          aria-describedby="notes-error"
+        />
+        <span id="notes-error">
+          <ValidationError messages={state.errors.notes ?? []} />
+        </span>
+      </div>
 
-        <button type="submit" style={{ marginTop: 16 }}>
-          Submit Invoice
+      {/* Line Items */}
+      <LineItemList />
+      {state.errors.lineItems && (
+        <ValidationError messages={state.errors.lineItems} id="lineItems-error" />
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <button
+          type="button"
+          aria-label="Add item"
+          onClick={() =>
+            dispatch({
+              type: 'ADD_LINE_ITEM',
+              payload: { id: uuidv4(), description: '', quantity: 0, rate: 0 },
+            })
+          }
+        >
+          Add Item
         </button>
-      </form>
-    </main>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <button type="submit">Submit Invoice</button>
+      </div>
+    </form>
   );
 }
