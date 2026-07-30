@@ -1,0 +1,100 @@
+/* -----------------------------------------------------------------------
+   InvoiceForm styles
+----------------------------------------------------------------------- */
+
+.invoice-form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.invoice-form__heading {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: var(--color-text);
+}
+
+.invoice-form__subheading {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+}
+
+.invoice-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.invoice-form__section {
+  margin-bottom: 1.25rem;
+}
+
+.invoice-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.invoice-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.invoice-form__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.invoice-form__input,
+.invoice-form__textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: #fff;
+  transition: border-color 0.15s;
+  /* Prevent flex blowout on narrow viewports */
+  min-width: 0;
+}
+
+.invoice-form__input:focus,
+.invoice-form__textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.invoice-form__textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* -----------------------------------------------------------------------
+   Mobile breakpoint — max-width: 767px
+   Touch targets: all interactive elements get min-height: 44px
+----------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .invoice-form {
+    padding: 1rem;
+  }
+
+  .invoice-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-form__input,
+  .invoice-form__textarea {
+    min-height: 44px;
+    font-size: 1rem; /* Prevent iOS auto-zoom on inputs < 16px */
+  }
+}
