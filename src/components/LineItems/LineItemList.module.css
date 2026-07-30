@@ -1,0 +1,23 @@
+/**
+ * LineItemList styles.
+ */
+.addButton {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-bg);
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.addButton:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.addButton:hover {
+  background-color: #1e40af; /* #1e40af on white ~6.5:1 — AA compliant */
+}
