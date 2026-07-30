@@ -1,10 +1,12 @@
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { InvoiceProvider, useInvoice } from '../../context/InvoiceContext';
 import { InvoiceForm } from './InvoiceForm';
 
 /**
- * Helper component that exposes current invoice state as data-testid attributes
- * so tests can assert state changes without reaching into context internals.
+ * StateDisplay reads from the shared InvoiceContext and exposes each field
+ * as a data-testid span so tests can assert state changes via rendered output
+ * without reaching into context internals or spying on dispatch.
  */
 function StateDisplay(): JSX.Element {
   const { state } = useInvoice();
@@ -20,8 +22,8 @@ function StateDisplay(): JSX.Element {
   );
 }
 
-function renderWithProvider(): void {
-  render(
+function renderWithProvider() {
+  return render(
     <InvoiceProvider>
       <InvoiceForm />
       <StateDisplay />
@@ -43,9 +45,7 @@ describe('InvoiceForm', () => {
     fireEvent.change(screen.getByLabelText(/client email/i), {
       target: { value: 'billing@acme.com' },
     });
-    expect(screen.getByTestId('clientEmail')).toHaveTextContent(
-      'billing@acme.com',
-    );
+    expect(screen.getByTestId('clientEmail')).toHaveTextContent('billing@acme.com');
   });
 
   it('dispatches SET_INVOICE_NUMBER when invoice number input changes', () => {
@@ -77,8 +77,6 @@ describe('InvoiceForm', () => {
     fireEvent.change(screen.getByLabelText(/notes/i), {
       target: { value: 'Net 30 payment terms.' },
     });
-    expect(screen.getByTestId('notes')).toHaveTextContent(
-      'Net 30 payment terms.',
-    );
+    expect(screen.getByTestId('notes')).toHaveTextContent('Net 30 payment terms.');
   });
 });
