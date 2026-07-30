@@ -4,7 +4,7 @@
  * Renders the CurrencySelector in the totals section and displays
  * monetary totals formatted via formatCurrency from InvoiceContext state.
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useInvoice } from '../context/InvoiceContext';
 import { formatCurrency } from '../utils/formatCurrency';
 import { CurrencySelector } from './CurrencySelector';
