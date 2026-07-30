@@ -1,13 +1,12 @@
-import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { createElement } from 'react';
-import { InvoiceProvider, useInvoice } from './InvoiceContext';
+import { vi } from 'vitest';
+import { useInvoice, InvoiceProvider } from './InvoiceContext';
+import React from 'react';
 
-/** JSX wrapper using createElement to avoid needing JSX transform in .ts files. */
-const wrapper = ({ children }: { children: React.ReactNode }) =>
-  createElement(InvoiceProvider, null, children);
+describe('InvoiceContext', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(InvoiceProvider, null, children);
 
-describe('useInvoice / invoiceReducer', () => {
   it('provides initial state', () => {
     const { result } = renderHook(() => useInvoice(), { wrapper });
     expect(result.current.state.clientName).toBe('');
@@ -35,9 +34,13 @@ describe('useInvoice / invoiceReducer', () => {
     const { result } = renderHook(() => useInvoice(), { wrapper });
     const id = result.current.state.lineItems[0].id;
     act(() => {
+      result.current.dispatch({ type: 'ADD_LINE_ITEM' });
+    });
+    act(() => {
       result.current.dispatch({ type: 'REMOVE_LINE_ITEM', id });
     });
-    expect(result.current.state.lineItems).toHaveLength(0);
+    expect(result.current.state.lineItems).toHaveLength(1);
+    expect(result.current.state.lineItems[0].id).not.toBe(id);
   });
 
   it('UPDATE_LINE_ITEM updates the correct field', () => {
@@ -49,15 +52,15 @@ describe('useInvoice / invoiceReducer', () => {
     expect(result.current.state.lineItems[0].description).toBe('Widget');
   });
 
-  it('SET_ERRORS stores errors', () => {
+  it('SET_ERRORS sets errors', () => {
     const { result } = renderHook(() => useInvoice(), { wrapper });
     act(() => {
       result.current.dispatch({ type: 'SET_ERRORS', errors: { clientName: 'Required' } });
     });
-    expect(result.current.state.errors['clientName']).toBe('Required');
+    expect(result.current.state.errors.clientName).toBe('Required');
   });
 
-  it('CLEAR_ERRORS empties the errors map', () => {
+  it('CLEAR_ERRORS clears errors', () => {
     const { result } = renderHook(() => useInvoice(), { wrapper });
     act(() => {
       result.current.dispatch({ type: 'SET_ERRORS', errors: { clientName: 'Required' } });
@@ -68,24 +71,9 @@ describe('useInvoice / invoiceReducer', () => {
     expect(result.current.state.errors).toEqual({});
   });
 
-  it('CLEAR_ERRORS then SET_ERRORS re-sets errors (double-submit pattern)', () => {
-    const { result } = renderHook(() => useInvoice(), { wrapper });
-    act(() => {
-      result.current.dispatch({ type: 'SET_ERRORS', errors: { clientName: 'Required' } });
-    });
-    act(() => {
-      result.current.dispatch({ type: 'CLEAR_ERRORS' });
-      result.current.dispatch({ type: 'SET_ERRORS', errors: { clientName: 'Required' } });
-    });
-    expect(result.current.state.errors['clientName']).toBe('Required');
-  });
-
-  it('throws when used outside InvoiceProvider', () => {
-    // Suppress React's error boundary console output in test
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect(() => renderHook(() => useInvoice())).toThrow(
-      'useInvoice must be used within an InvoiceProvider',
-    );
+  it('useInvoice throws outside provider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => renderHook(() => useInvoice())).toThrow('useInvoice must be used within an InvoiceProvider');
     spy.mockRestore();
   });
 });

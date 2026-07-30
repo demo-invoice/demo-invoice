@@ -1,90 +1,111 @@
-/**
- * LineItemRow — a single line item row in the invoice.
- *
- * Each field has an explicit <label> associated via htmlFor/id.
- * The remove button has a dynamic aria-label reflecting its 1-based position.
- */
-import styles from './LineItemRow.module.css';
-import { useInvoice, type LineItem } from '../../context/InvoiceContext';
+import type { RefObject } from 'react';
+import { useInvoice } from '../../context/InvoiceContext';
+import { ValidationError } from '../ValidationError/ValidationError';
+import type { LineItem } from '../../context/InvoiceContext';
 
-interface LineItemRowProps {
+export interface LineItemRowProps {
   item: LineItem;
   index: number;
+  /** Ref to the "Add Item" button in LineItemList — focus returns here after removal. */
+  addItemButtonRef: RefObject<HTMLButtonElement>;
 }
 
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'];
+
 /**
- * Renders a single line item row with accessible labelled inputs and a remove button.
+ * Renders a single line-item row with accessible labels and a remove button.
+ * After dispatching REMOVE_LINE_ITEM, focus is returned to the "Add Item"
+ * button via queueMicrotask so React has time to remove the row from the DOM
+ * before focus moves.
  */
-export function LineItemRow({ item, index }: LineItemRowProps) {
-  const { dispatch } = useInvoice();
-  const position = index + 1;
+export function LineItemRow({ item, index, addItemButtonRef }: LineItemRowProps) {
+  const { state, dispatch } = useInvoice();
+  const n = index + 1;
+
+  const descId = `error-line-${index}-description`;
+  const qtyId = `error-line-${index}-quantity`;
+  const priceId = `error-line-${index}-unitPrice`;
+
+  function handleRemove() {
+    dispatch({ type: 'REMOVE_LINE_ITEM', id: item.id });
+    queueMicrotask(() => addItemButtonRef.current?.focus());
+  }
 
   return (
-    <div className={styles.row}>
-      <div className={styles.field}>
-        <label htmlFor={`description-${item.id}`} className={styles.label}>
-          Description
-        </label>
+    <div role="group" aria-label={`Line item ${n}`} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+      <div style={{ flex: '2 1 12rem' }}>
+        <label htmlFor={`line-${index}-description`}>Description (item {n})</label>
         <input
-          id={`description-${item.id}`}
+          id={`line-${index}-description`}
           type="text"
-          className={styles.input}
           value={item.description}
+          aria-describedby={descId}
+          aria-required="true"
           onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              payload: { id: item.id, field: 'description', value: e.target.value },
-            })
+            dispatch({ type: 'UPDATE_LINE_ITEM', id: item.id, field: 'description', value: e.target.value })
           }
         />
+        <ValidationError id={descId} message={state.errors[`line-${index}-description`]} />
       </div>
 
-      <div className={styles.field}>
-        <label htmlFor={`quantity-${item.id}`} className={styles.label}>
-          Quantity
-        </label>
+      <div style={{ flex: '1 1 5rem' }}>
+        <label htmlFor={`line-${index}-quantity`}>Quantity (item {n})</label>
         <input
-          id={`quantity-${item.id}`}
+          id={`line-${index}-quantity`}
           type="number"
-          className={styles.input}
+          min={1}
           value={item.quantity}
+          aria-describedby={qtyId}
+          aria-required="true"
           onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              payload: { id: item.id, field: 'quantity', value: e.target.value },
-            })
+            dispatch({ type: 'UPDATE_LINE_ITEM', id: item.id, field: 'quantity', value: e.target.value })
           }
         />
+        <ValidationError id={qtyId} message={state.errors[`line-${index}-quantity`]} />
       </div>
 
-      <div className={styles.field}>
-        <label htmlFor={`unitPrice-${item.id}`} className={styles.label}>
-          Unit Price
-        </label>
+      <div style={{ flex: '1 1 7rem' }}>
+        <label htmlFor={`line-${index}-unitPrice`}>Unit price (item {n})</label>
         <input
-          id={`unitPrice-${item.id}`}
+          id={`line-${index}-unitPrice`}
           type="number"
-          className={styles.input}
+          min={0}
+          step={0.01}
           value={item.unitPrice}
+          aria-describedby={priceId}
+          aria-required="true"
           onChange={(e) =>
-            dispatch({
-              type: 'UPDATE_LINE_ITEM',
-              payload: { id: item.id, field: 'unitPrice', value: e.target.value },
-            })
+            dispatch({ type: 'UPDATE_LINE_ITEM', id: item.id, field: 'unitPrice', value: e.target.value })
           }
         />
+        <ValidationError id={priceId} message={state.errors[`line-${index}-unitPrice`]} />
       </div>
 
-      <button
-        type="button"
-        className={styles.removeButton}
-        aria-label={`Remove item ${position}`}
-        onClick={() =>
-          dispatch({ type: 'REMOVE_LINE_ITEM', payload: { id: item.id } })
-        }
-      >
-        Remove
-      </button>
+      <div style={{ flex: '1 1 6rem' }}>
+        <label htmlFor={`line-${index}-currency`}>Currency (item {n})</label>
+        {/* Native <select> is inherently keyboard-accessible; no custom ARIA widget needed. */}
+        <select
+          id={`line-${index}-currency`}
+          value={item.currency}
+          onChange={(e) =>
+            dispatch({ type: 'UPDATE_LINE_ITEM', id: item.id, field: 'currency', value: e.target.value })
+          }
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <button
+          type="button"
+          aria-label={`Remove item ${n}`}
+          onClick={handleRemove}
+        >
+          Remove
+        </button>
+      </div>
     </div>
   );
 }
