@@ -3,6 +3,7 @@ import {
   useContext,
   useReducer,
   useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
 
@@ -105,8 +106,25 @@ const InvoiceContext = createContext<InvoiceContextValue | null>(null);
  */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, undefined, loadPersistedState);
+  const isResettingRef = useRef(false);
+
+  const wrappedDispatch: React.Dispatch<InvoiceAction> = (action) => {
+    if (action.type === 'RESET_INVOICE') {
+      isResettingRef.current = true;
+    }
+    dispatch(action);
+  };
 
   useEffect(() => {
+    if (isResettingRef.current) {
+      isResettingRef.current = false;
+      try {
+        localStorage.removeItem(INVOICE_STORAGE_KEY);
+      } catch {
+        // Storage unavailable — ignore silently.
+      }
+      return;
+    }
     try {
       localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -115,7 +133,7 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   return (
-    <InvoiceContext.Provider value={{ state, dispatch }}>
+    <InvoiceContext.Provider value={{ state, dispatch: wrappedDispatch }}>
       {children}
     </InvoiceContext.Provider>
   );
