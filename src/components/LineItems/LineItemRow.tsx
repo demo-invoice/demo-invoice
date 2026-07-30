@@ -1,84 +1,107 @@
-import type { RefObject } from 'react';
 import type { LineItem } from '../../types/invoice';
 import { useInvoice } from '../../context/InvoiceContext';
+import { ValidationError } from '../InvoiceForm/ValidationError';
 
 interface LineItemRowProps {
   item: LineItem;
   index: number;
-  /** Ref to the Add button — focused after this row is removed. */
-  addItemButtonRef: RefObject<HTMLButtonElement>;
+  errors?: Record<string, string[]>;
 }
 
 /**
- * A single invoice line item row with accessible labels and
- * a Remove button that returns focus to the Add button on removal.
+ * Renders a single line item row.
+ * Uses item.id (stable UUID) for all HTML IDs — never array index.
  */
-export function LineItemRow({ item, index, addItemButtonRef }: LineItemRowProps) {
+export function LineItemRow({ item, index, errors = {} }: LineItemRowProps) {
   const { dispatch } = useInvoice();
-  const n = index + 1;
 
-  const removeLabel = item.description.trim()
-    ? `Remove ${item.description.trim()}`
-    : `Remove item ${n}`;
+  const descId = `description-${item.id}`;
+  const qtyId = `quantity-${item.id}`;
+  const rateId = `rate-${item.id}`;
+  const descErrorId = `description-error-${item.id}`;
+  const qtyErrorId = `quantity-error-${item.id}`;
+  const rateErrorId = `rate-error-${item.id}`;
 
-  function handleRemove() {
-    dispatch({ type: 'REMOVE_LINE_ITEM', id: item.id });
-    queueMicrotask(() => {
-      addItemButtonRef.current?.focus();
-    });
-  }
-
-  function handleFieldChange(
-    field: 'description' | 'quantity' | 'rate',
-    raw: string
-  ) {
-    if (field === 'description') {
-      dispatch({ type: 'UPDATE_LINE_ITEM', id: item.id, field, value: raw });
-    } else {
-      const num = parseFloat(raw);
-      dispatch({
-        type: 'UPDATE_LINE_ITEM',
-        id: item.id,
-        field,
-        value: isNaN(num) ? 0 : num,
-      });
-    }
+  function updateField(field: keyof Omit<LineItem, 'id'>, value: string | number) {
+    dispatch({ type: 'UPDATE_LINE_ITEM', payload: { id: item.id, field, value } });
   }
 
   return (
     <tr>
+      {/* Description */}
       <td>
-        <label htmlFor={`description-${index}`}>Description for item {n}</label>
+        <label htmlFor={descId} className="sr-only">
+          Description for item {index + 1}
+        </label>
         <input
-          id={`description-${index}`}
+          id={descId}
           type="text"
           value={item.description}
-          onChange={(e) => handleFieldChange('description', e.target.value)}
+          onChange={(e) => updateField('description', e.target.value)}
+          aria-describedby={descErrorId}
+          aria-invalid={!!errors['description']}
+          aria-label={`Description for item ${index + 1}`}
         />
+        <span id={descErrorId}>
+          <ValidationError messages={errors['description'] ?? []} />
+        </span>
       </td>
+
+      {/* Quantity */}
       <td>
-        <label htmlFor={`quantity-${index}`}>Quantity for item {n}</label>
+        <label htmlFor={qtyId} className="sr-only">
+          Quantity for item {index + 1}
+        </label>
         <input
-          id={`quantity-${index}`}
+          id={qtyId}
           type="number"
           min={0}
           value={item.quantity}
-          onChange={(e) => handleFieldChange('quantity', e.target.value)}
+          onChange={(e) => updateField('quantity', Number(e.target.value))}
+          aria-describedby={qtyErrorId}
+          aria-invalid={!!errors['quantity']}
+          aria-label={`Quantity for item ${index + 1}`}
         />
+        <span id={qtyErrorId}>
+          <ValidationError messages={errors['quantity'] ?? []} />
+        </span>
       </td>
+
+      {/* Rate */}
       <td>
-        <label htmlFor={`rate-${index}`}>Rate for item {n}</label>
+        <label htmlFor={rateId} className="sr-only">
+          Rate for item {index + 1}
+        </label>
         <input
-          id={`rate-${index}`}
+          id={rateId}
           type="number"
           min={0}
           step="0.01"
           value={item.rate}
-          onChange={(e) => handleFieldChange('rate', e.target.value)}
+          onChange={(e) => updateField('rate', Number(e.target.value))}
+          aria-describedby={rateErrorId}
+          aria-invalid={!!errors['rate']}
+          aria-label={`Rate for item ${index + 1}`}
         />
+        <span id={rateErrorId}>
+          <ValidationError messages={errors['rate'] ?? []} />
+        </span>
       </td>
+
+      {/* Amount (computed, read-only) */}
+      <td aria-label={`Amount for item ${index + 1}`}>
+        {(item.quantity * item.rate).toFixed(2)}
+      </td>
+
+      {/* Remove */}
       <td>
-        <button type="button" aria-label={removeLabel} onClick={handleRemove}>
+        <button
+          type="button"
+          aria-label={`Remove item ${index + 1}`}
+          onClick={() =>
+            dispatch({ type: 'REMOVE_LINE_ITEM', payload: { id: item.id } })
+          }
+        >
           Remove
         </button>
       </td>

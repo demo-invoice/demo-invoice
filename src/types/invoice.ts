@@ -1,32 +1,60 @@
-/**
- * Shared TypeScript types for the invoice application.
- */
-
-/** A single line item in the invoice. */
+/** A single line item on the invoice. */
 export interface LineItem {
+  /** Stable UUID generated at ADD_LINE_ITEM time. */
   id: string;
   description: string;
   quantity: number;
   rate: number;
 }
 
-/** The full invoice form state. */
+/** Top-level form state. */
 export interface InvoiceState {
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
   clientName: string;
-  notes: string;
   currency: string;
+  notes: string;
   lineItems: LineItem[];
-  errors: string[];
+  /** Map of field name → array of error messages. */
+  errors: Record<string, string[]>;
 }
 
-/** Whitelisted string fields that SET_FIELD may update. */
-export type StringField = 'clientName' | 'notes' | 'currency';
+// ── Action union ────────────────────────────────────────────────────────────
 
-/** Discriminated union of all dispatchable actions. */
+export interface SetFieldAction {
+  type: 'SET_FIELD';
+  payload: { field: keyof Omit<InvoiceState, 'lineItems' | 'errors'>; value: string };
+}
+
+export interface SetErrorsAction {
+  type: 'SET_ERRORS';
+  payload: Record<string, string[]>;
+}
+
+export interface ClearErrorsAction {
+  type: 'CLEAR_ERRORS';
+}
+
+export interface AddLineItemAction {
+  type: 'ADD_LINE_ITEM';
+  payload: LineItem;
+}
+
+export interface RemoveLineItemAction {
+  type: 'REMOVE_LINE_ITEM';
+  payload: { id: string };
+}
+
+export interface UpdateLineItemAction {
+  type: 'UPDATE_LINE_ITEM';
+  payload: { id: string; field: keyof Omit<LineItem, 'id'>; value: string | number };
+}
+
 export type InvoiceAction =
-  | { type: 'SET_FIELD'; field: StringField; value: string }
-  | { type: 'SET_ERRORS'; errors: string[] }
-  | { type: 'CLEAR_ERRORS' }
-  | { type: 'ADD_LINE_ITEM' }
-  | { type: 'REMOVE_LINE_ITEM'; id: string }
-  | { type: 'UPDATE_LINE_ITEM'; id: string; field: keyof Omit<LineItem, 'id'>; value: string | number };
+  | SetFieldAction
+  | SetErrorsAction
+  | ClearErrorsAction
+  | AddLineItemAction
+  | RemoveLineItemAction
+  | UpdateLineItemAction;

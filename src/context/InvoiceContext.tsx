@@ -1,72 +1,74 @@
-import React, {
+import {
   createContext,
   useContext,
   useReducer,
   type ReactNode,
+  type Dispatch,
 } from 'react';
-import type { InvoiceState, InvoiceAction, StringField } from '../types/invoice';
-
-/** Whitelisted string fields to prevent prototype pollution. */
-const STRING_FIELDS = new Set<StringField>(['clientName', 'notes', 'currency']);
+import type { InvoiceState, InvoiceAction } from '../types/invoice';
 
 const initialState: InvoiceState = {
+  invoiceNumber: '',
+  issueDate: '',
+  dueDate: '',
   clientName: '',
-  notes: '',
   currency: 'USD',
+  notes: '',
   lineItems: [],
-  errors: [],
+  errors: {},
 };
 
-/**
- * Pure reducer for invoice state.
- * SET_FIELD only updates whitelisted string fields.
- */
-function invoiceReducer(state: InvoiceState, action: InvoiceAction): InvoiceState {
+/** Pure reducer — handles all InvoiceAction types. */
+export function invoiceReducer(
+  state: InvoiceState,
+  action: InvoiceAction,
+): InvoiceState {
   switch (action.type) {
-    case 'SET_FIELD': {
-      if (!STRING_FIELDS.has(action.field)) return state;
-      return { ...state, [action.field]: action.value };
-    }
+    case 'SET_FIELD':
+      return { ...state, [action.payload.field]: action.payload.value };
+
     case 'SET_ERRORS':
-      return { ...state, errors: action.errors };
+      return { ...state, errors: action.payload };
+
     case 'CLEAR_ERRORS':
-      return { ...state, errors: [] };
-    case 'ADD_LINE_ITEM': {
-      const newItem = {
-        id: crypto.randomUUID(),
-        description: '',
-        quantity: 1,
-        rate: 0,
-      };
-      return { ...state, lineItems: [...state.lineItems, newItem] };
-    }
+      return { ...state, errors: {} };
+
+    case 'ADD_LINE_ITEM':
+      return { ...state, lineItems: [...state.lineItems, action.payload] };
+
     case 'REMOVE_LINE_ITEM':
       return {
         ...state,
-        lineItems: state.lineItems.filter((item) => item.id !== action.id),
+        lineItems: state.lineItems.filter((li) => li.id !== action.payload.id),
       };
+
     case 'UPDATE_LINE_ITEM':
       return {
         ...state,
-        lineItems: state.lineItems.map((item) =>
-          item.id === action.id ? { ...item, [action.field]: action.value } : item
+        lineItems: state.lineItems.map((li) =>
+          li.id === action.payload.id
+            ? { ...li, [action.payload.field]: action.payload.value }
+            : li,
         ),
       };
-    default:
+
+    default: {
+      const _exhaustive: never = action;
       return state;
+      // eslint-disable-next-line no-unreachable
+      void _exhaustive;
+    }
   }
 }
 
 interface InvoiceContextValue {
   state: InvoiceState;
-  dispatch: React.Dispatch<InvoiceAction>;
+  dispatch: Dispatch<InvoiceAction>;
 }
 
 const InvoiceContext = createContext<InvoiceContextValue | null>(null);
 
-/**
- * Provides invoice state and dispatch to the component tree.
- */
+/** Provides invoice state and dispatch to the component tree. */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, initialState);
   return (
@@ -76,14 +78,9 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Hook to consume InvoiceContext.
- * Throws if used outside InvoiceProvider.
- */
+/** Hook to consume invoice context. Throws if used outside InvoiceProvider. */
 export function useInvoice(): InvoiceContextValue {
   const ctx = useContext(InvoiceContext);
-  if (!ctx) {
-    throw new Error('useInvoice must be used within an InvoiceProvider');
-  }
+  if (!ctx) throw new Error('useInvoice must be used within InvoiceProvider');
   return ctx;
 }

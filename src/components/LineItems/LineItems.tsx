@@ -1,51 +1,37 @@
-import { useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useInvoice } from '../../context/InvoiceContext';
-import { LineItemRow } from './LineItemRow';
+import { LineItemList } from './LineItemList';
 
 /**
- * Renders the line items table with an accessible Add button.
- * The Add button receives focus after any row is removed.
+ * Container component for line items.
+ * Dispatches ADD_LINE_ITEM with a stable UUID payload.
  */
 export function LineItems() {
   const { state, dispatch } = useInvoice();
-  const addItemButtonRef = useRef<HTMLButtonElement>(null);
 
-  function handleAdd() {
-    dispatch({ type: 'ADD_LINE_ITEM' });
+  function handleAddItem() {
+    dispatch({
+      type: 'ADD_LINE_ITEM',
+      payload: {
+        id: uuidv4(),
+        description: '',
+        quantity: 1,
+        rate: 0,
+      },
+    });
   }
 
   return (
-    <section aria-label="Line items">
-      {state.lineItems.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Description</th>
-              <th scope="col">Quantity</th>
-              <th scope="col">Rate</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.lineItems.map((item, index) => (
-              <LineItemRow
-                key={item.id}
-                item={item}
-                index={index}
-                addItemButtonRef={addItemButtonRef}
-              />
-            ))}
-          </tbody>
-        </table>
-      )}
+    <div>
+      <LineItemList items={state.lineItems} />
       <button
-        ref={addItemButtonRef}
         type="button"
-        aria-label="Add line item"
-        onClick={handleAdd}
+        aria-label="Add item"
+        onClick={handleAddItem}
+        style={{ marginTop: 8 }}
       >
-        Add line item
+        + Add item
       </button>
-    </section>
+    </div>
   );
 }
