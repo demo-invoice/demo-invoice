@@ -1,146 +1,95 @@
-/**
- * InvoiceForm — main invoice form component.
- *
- * Accessible form with labelled inputs, keyboard navigation,
- * and validation error announcements via aria-describedby.
- */
-import styles from './InvoiceForm.module.css';
+import { type FormEvent } from 'react';
 import { useInvoice } from '../../context/InvoiceContext';
-import { CurrencyDropdown } from '../CurrencyDropdown/CurrencyDropdown';
-import { LineItemList } from '../LineItems/LineItemList';
 import { ValidationError } from '../ValidationError/ValidationError';
+import { LineItemList } from './LineItemList';
+
+/** Validates the invoice state and returns a map of field → error message. */
+function validate(clientName: string, clientEmail: string): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!clientName.trim()) {
+    errors['clientName'] = 'Client name is required.';
+  }
+  if (!clientEmail.trim()) {
+    errors['clientEmail'] = 'Client email is required.';
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+    errors['clientEmail'] = 'Client email must be a valid email address.';
+  }
+  return errors;
+}
 
 /**
- * Renders the full invoice creation form.
+ * Main invoice form component.
+ *
+ * Every input has an explicit <label htmlFor> paired with a matching id.
+ * Each input's aria-describedby points to its ValidationError id.
+ *
+ * handleSubmit dispatches CLEAR_ERRORS then SET_ERRORS on every attempt so
+ * that live regions re-announce identical error messages on repeated
+ * submissions (empty → text transition re-triggers the announcement).
  */
 export function InvoiceForm() {
   const { state, dispatch } = useInvoice();
-  const { invoiceNumber, date, dueDate, clientName, currency, errors } = state;
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const newErrors: Record<string, string> = {};
-    if (!invoiceNumber.trim()) newErrors.invoiceNumber = 'Invoice number is required.';
-    if (!date.trim()) newErrors.date = 'Issue date is required.';
-    if (!dueDate.trim()) newErrors.dueDate = 'Due date is required.';
-    if (!clientName.trim()) newErrors.clientName = 'Client name is required.';
-    if (Object.keys(newErrors).length > 0) {
-      dispatch({ type: 'SET_ERRORS', payload: newErrors });
-    } else {
-      dispatch({ type: 'CLEAR_ERRORS' });
+    // CLEAR_ERRORS first so live region text node goes empty → text,
+    // re-triggering announcement even when errors are identical.
+    dispatch({ type: 'CLEAR_ERRORS' });
+    const errors = validate(state.clientName, state.clientEmail);
+    if (Object.keys(errors).length > 0) {
+      dispatch({ type: 'SET_ERRORS', errors });
+      return;
     }
+    // TODO: submit invoice to API
+    alert('Invoice submitted successfully!');
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} noValidate>
-      <h1 className={styles.title}>Create Invoice</h1>
+    <main>
+      <h1>Create Invoice</h1>
+      <form onSubmit={handleSubmit} noValidate aria-label="Invoice form">
+        <fieldset>
+          <legend>Client Details</legend>
 
-      <div className={styles.fieldGroup}>
-        <div className={styles.field}>
-          <label htmlFor="invoiceNumber" className={styles.label}>
-            Invoice Number
-          </label>
-          <input
-            id="invoiceNumber"
-            name="invoiceNumber"
-            type="text"
-            className={styles.input}
-            value={invoiceNumber}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_FIELD',
-                payload: { field: 'invoiceNumber', value: e.target.value },
-              })
-            }
-            aria-describedby={errors.invoiceNumber ? 'invoiceNumber-error' : undefined}
-            aria-invalid={errors.invoiceNumber ? 'true' : undefined}
-          />
-          <ValidationError id="invoiceNumber-error" message={errors.invoiceNumber} />
-        </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="clientName">Client name</label>
+            <input
+              id="clientName"
+              type="text"
+              value={state.clientName}
+              aria-describedby="error-clientName"
+              aria-required="true"
+              autoComplete="name"
+              onChange={(e) =>
+                dispatch({ type: 'SET_FIELD', field: 'clientName', value: e.target.value })
+              }
+            />
+            <ValidationError id="error-clientName" message={state.errors['clientName']} />
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="clientName" className={styles.label}>
-            Client Name
-          </label>
-          <input
-            id="clientName"
-            name="clientName"
-            type="text"
-            className={styles.input}
-            value={clientName}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_FIELD',
-                payload: { field: 'clientName', value: e.target.value },
-              })
-            }
-            aria-describedby={errors.clientName ? 'clientName-error' : undefined}
-            aria-invalid={errors.clientName ? 'true' : undefined}
-          />
-          <ValidationError id="clientName-error" message={errors.clientName} />
-        </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="clientEmail">Client email</label>
+            <input
+              id="clientEmail"
+              type="email"
+              value={state.clientEmail}
+              aria-describedby="error-clientEmail"
+              aria-required="true"
+              autoComplete="email"
+              onChange={(e) =>
+                dispatch({ type: 'SET_FIELD', field: 'clientEmail', value: e.target.value })
+              }
+            />
+            <ValidationError id="error-clientEmail" message={state.errors['clientEmail']} />
+          </div>
+        </fieldset>
 
-        <div className={styles.field}>
-          <label htmlFor="date" className={styles.label}>
-            Issue Date
-          </label>
-          <input
-            id="date"
-            name="date"
-            type="date"
-            className={styles.input}
-            value={date}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_FIELD',
-                payload: { field: 'date', value: e.target.value },
-              })
-            }
-            aria-describedby={errors.date ? 'date-error' : undefined}
-            aria-invalid={errors.date ? 'true' : undefined}
-          />
-          <ValidationError id="date-error" message={errors.date} />
-        </div>
+        <LineItemList />
 
-        <div className={styles.field}>
-          <label htmlFor="dueDate" className={styles.label}>
-            Due Date
-          </label>
-          <input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            className={styles.input}
-            value={dueDate}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_FIELD',
-                payload: { field: 'dueDate', value: e.target.value },
-              })
-            }
-            aria-describedby={errors.dueDate ? 'dueDate-error' : undefined}
-            aria-invalid={errors.dueDate ? 'true' : undefined}
-          />
-          <ValidationError id="dueDate-error" message={errors.dueDate} />
-        </div>
-      </div>
-
-      <CurrencyDropdown
-        value={currency}
-        onChange={(value) =>
-          dispatch({
-            type: 'UPDATE_FIELD',
-            payload: { field: 'currency', value },
-          })
-        }
-        error={errors.currency}
-      />
-
-      <LineItemList />
-
-      <button type="submit" className={styles.submitButton}>
-        Save Invoice
-      </button>
-    </form>
+        <button type="submit" style={{ marginTop: '1.5rem' }}>
+          Submit Invoice
+        </button>
+      </form>
+    </main>
   );
 }

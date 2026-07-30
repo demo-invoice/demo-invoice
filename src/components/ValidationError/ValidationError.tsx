@@ -1,43 +1,45 @@
 /**
- * ValidationError — reusable accessible error message component.
+ * ValidationError — always-mounted ARIA live region.
  *
- * - Renders null when there is no error, so screen readers only announce
- *   when the error actually appears.
- * - Uses role="alert" (implicit aria-live="assertive") for field-level errors
- *   so the message is announced immediately on appearance.
- * - The `id` prop must match the `aria-describedby` value on the associated input.
- * - For form-level summary errors, pass `live="polite"` to avoid interrupting
- *   the user mid-keystroke.
+ * The container element is ALWAYS rendered (never returns null) so that
+ * VoiceOver / NVDA register the live region before any text is inserted.
+ * Conditionally mounting the element and then setting text in the same
+ * render tick is a known anti-pattern: screen readers miss the announcement
+ * because they haven't observed the region yet.
  *
- * Screen reader re-announcement: if the same error is re-triggered (e.g. double
- * submit), the parent should toggle the `key` prop to force a remount, which
- * causes the live region to re-fire.
+ * Usage:
+ *   <ValidationError id="error-client-name" message={errors.clientName} />
+ *   <input aria-describedby="error-client-name" ... />
  */
-import styles from './ValidationError.module.css';
 
-interface ValidationErrorProps {
-  /** Unique id — referenced by the input's aria-describedby. */
+export interface ValidationErrorProps {
+  /** Must match the aria-describedby value on the associated input. */
   id: string;
-  /** Error message string. Component renders null when falsy. */
-  message: string | undefined;
-  /** aria-live politeness. Defaults to 'assertive' (role=alert). */
+  /** Error message to announce. Pass undefined / empty string when valid. */
+  message?: string;
+  /**
+   * 'assertive' (default) — interrupts the user immediately (role="alert").
+   * 'polite' — waits for the user to be idle (role="status").
+   */
   live?: 'assertive' | 'polite';
 }
 
-/**
- * Renders an accessible inline validation error message.
- */
 export function ValidationError({ id, message, live = 'assertive' }: ValidationErrorProps) {
-  if (!message) return null;
-
+  const role = live === 'assertive' ? 'alert' : 'status';
   return (
     <span
       id={id}
-      className={styles.error}
-      role={live === 'assertive' ? 'alert' : undefined}
-      aria-live={live === 'polite' ? 'polite' : undefined}
+      role={role}
+      aria-live={live}
+      style={{
+        display: 'block',
+        minHeight: '1.25em',
+        color: 'var(--color-error, #b91c1c)',
+        fontSize: '0.875rem',
+        marginTop: '0.25rem',
+      }}
     >
-      {message}
+      {message ?? ''}
     </span>
   );
 }

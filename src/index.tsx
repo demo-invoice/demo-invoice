@@ -1,21 +1,15 @@
-/**
- * Application entry point.
- * Wraps the app in InvoiceProvider so all components can access invoice state.
- */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { InvoiceProvider } from './context/InvoiceContext';
-import { App } from './App';
+import App from './App';
+import './index.css';
 
-const container = document.getElementById('root');
-if (!container) {
+const rootElement = document.getElementById('root');
+if (!rootElement) {
   throw new Error('Root element #root not found in document.');
 }
 
-createRoot(container).render(
+createRoot(rootElement).render(
   <StrictMode>
-    <InvoiceProvider>
-      <App />
-    </InvoiceProvider>
+    <App />
   </StrictMode>,
 );
