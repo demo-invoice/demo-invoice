@@ -1,0 +1,39 @@
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+
+# ---------------------------------------------------------------------------
+# HTTP → HTTPS redirect
+# force = true ensures this rule wins over any other matching rule.
+# The wildcard http://* with :splat covers ALL paths, not just the root —
+# a root-only redirect would silently miss deep links.
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from   = "http://*"
+  to     = "https://:splat"
+  status = 301
+  force  = true
+
+# ---------------------------------------------------------------------------
+# SPA fallback — send all unmatched routes to index.html
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# Security headers
+# CSP intentionally retains blob: in default-src, script-src, and img-src
+# so that jsPDF can generate PDF Blobs and open them in a new tab without
+# being blocked by the browser. Removing blob: would break PDF generation
+# in production.
+# ---------------------------------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self' blob:; script-src 'self' blob: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
