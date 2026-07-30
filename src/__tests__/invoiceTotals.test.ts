@@ -32,10 +32,9 @@ describe('deriveInvoiceTotals', () => {
     expect(result.grandTotal).toBe(0);
   });
 
-  it('handles floating-point edge case: 3 × £1.10 = £3.30 exactly', () => {
+  it('handles floating-point edge case: 3 × 1.10 = 3.30 exactly', () => {
     const items = [makeItem('1', 'Item', 3, 1.1)];
     const result = deriveInvoiceTotals(items, 0);
-    // Without rounding: 3 * 1.1 = 3.3000000000000003
     expect(result.subtotal).toBe(3.3);
   });
 
@@ -51,7 +50,6 @@ describe('deriveInvoiceTotals', () => {
   });
 
   it('rounds tax amount to 2 decimal places', () => {
-    // 100 * 17.5% = 17.5 — exact; test with a trickier number
     const items = [makeItem('1', 'X', 1, 99.99)];
     const result = deriveInvoiceTotals(items, 17.5);
     // 99.99 * 0.175 = 17.49825 → rounds to 17.50
