@@ -59,6 +59,8 @@ function loadSavedInvoices(): SavedInvoice[] {
 interface ReducerState {
   active: InvoiceState;
   savedInvoices: SavedInvoice[];
+  /** True immediately after a RESET_INVOICE so the persistence effect removes the key. */
+  didReset: boolean;
 }
 
 /** Pure reducer — no side-effects. */
@@ -67,6 +69,7 @@ function invoiceReducer(state: ReducerState, action: InvoiceAction): ReducerStat
     case 'UPDATE_FIELD':
       return {
         ...state,
+        didReset: false,
         active: { ...state.active, [action.field]: action.value },
       };
 
@@ -80,6 +83,7 @@ function invoiceReducer(state: ReducerState, action: InvoiceAction): ReducerStat
       };
       return {
         ...state,
+        didReset: false,
         savedInvoices: [...state.savedInvoices, entry],
       };
     }
@@ -87,12 +91,14 @@ function invoiceReducer(state: ReducerState, action: InvoiceAction): ReducerStat
     case 'LOAD_SAVED_INVOICE':
       return {
         ...state,
+        didReset: false,
         active: { ...action.payload.snapshot },
       };
 
     case 'RESET_INVOICE':
       return {
         ...state,
+        didReset: true,
         active: defaultState(),
       };
 
@@ -114,24 +120,26 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(invoiceReducer, undefined, () => ({
     active: loadActiveInvoice(),
     savedInvoices: loadSavedInvoices(),
+    didReset: false,
   }));
 
-  // Persist active invoice whenever it changes.
+  // Persist active invoice whenever it changes; remove the key on reset.
   useEffect(() => {
-    localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(state.active));
-  }, [state.active]);
+    if (state.didReset) {
+      localStorage.removeItem(INVOICE_STORAGE_KEY);
+    } else {
+      localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(state.active));
+    }
+  }, [state.active, state.didReset]);
 
   // Persist saved invoices list whenever it changes.
   useEffect(() => {
     localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(state.savedInvoices));
   }, [state.savedInvoices]);
 
-  // Wrap dispatch to handle RESET side-effect (remove active key).
+  // Wrap dispatch — side-effects for RESET are now handled in the useEffect above.
   const wrappedDispatch = useCallback(
     (action: InvoiceAction) => {
-      if (action.type === 'RESET_INVOICE') {
-        localStorage.removeItem(INVOICE_STORAGE_KEY);
-      }
       dispatch(action);
     },
     [],
