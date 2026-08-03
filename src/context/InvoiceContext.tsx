@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import type { Dispatch } from 'react';
-import { invoiceReducer, initialState, buildDefaultActive } from '../reducers/invoiceReducer';
+import { invoiceReducer, buildDefaultActive } from '../reducers/invoiceReducer';
 import type { InvoiceAction, InvoiceState, ActiveInvoice, SavedInvoice } from '../types/invoice';
 import { INVOICE_ACTIVE_KEY, INVOICE_HISTORY_KEY } from '../constants/storage';
 
