@@ -52,105 +52,75 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
           invoice,
           recipientEmail: recipientEmail.trim(),
           subject: subject.trim() || `Invoice #${invoice.number}`,
-          message,
+          message: message.trim(),
         }),
       });
 
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        throw new Error(body.error ?? `Unexpected error (HTTP ${res.status})`);
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error ?? `Request failed with status ${res.status}`);
       }
 
       dispatch({ type: 'UPDATE_INVOICE_STATUS', payload: 'Sent' });
       setSent(true);
       onSuccess();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Failed to send invoice.');
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to send invoice. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div role="dialog" aria-modal="true" aria-labelledby="modal-title"
-      style={overlay}>
-      <div style={panel}>
-        <h2 id="modal-title" style={{ marginTop: 0 }}>Send Invoice by Email</h2>
-
-        {sent ? (
-          <div role="status" aria-live="polite">
-            <p style={{ color: 'green' }}>✓ Invoice sent successfully!</p>
-            <button onClick={onClose}>Close</button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} noValidate>
-            <label htmlFor="recipientEmail">Recipient Email *</label>
-            <input
-              id="recipientEmail"
-              type="email"
-              value={recipientEmail}
-              onChange={handleEmailChange}
-              disabled={loading}
-              aria-describedby={emailError ? 'email-error' : undefined}
-              aria-invalid={!!emailError}
-              style={inputStyle}
-            />
-            {emailError && (
-              <p id="email-error" role="alert" style={{ color: 'red', margin: '4px 0' }}>
-                {emailError}
-              </p>
-            )}
-
-            <label htmlFor="subject" style={{ display: 'block', marginTop: 12 }}>Subject</label>
-            <input
-              id="subject"
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              disabled={loading}
-              style={inputStyle}
-            />
-
-            <label htmlFor="message" style={{ display: 'block', marginTop: 12 }}>Message (optional)</label>
-            <textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              disabled={loading}
-              rows={4}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-
-            {apiError && (
-              <p role="alert" style={{ color: 'red', margin: '8px 0' }}>
-                {apiError}
-              </p>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button type="submit" disabled={loading} aria-busy={loading}>
-                {loading ? 'Sending…' : 'Send Invoice'}
-              </button>
-              <button type="button" onClick={onClose} disabled={loading}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+  if (sent) {
+    return (
+      <div role="dialog" aria-modal="true">
+        <p>Invoice sent successfully!</p>
+        <button onClick={onClose}>Close</button>
       </div>
+    );
+  }
+
+  return (
+    <div role="dialog" aria-modal="true">
+      <h2>Send Invoice</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="recipientEmail">Recipient Email</label>
+          <input
+            id="recipientEmail"
+            type="email"
+            value={recipientEmail}
+            onChange={handleEmailChange}
+            placeholder="client@example.com"
+            disabled={loading}
+          />
+          {emailError && <span role="alert">{emailError}</span>}
+        </div>
+        <div>
+          <label htmlFor="subject">Subject</label>
+          <input
+            id="subject"
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label htmlFor="message">Message (optional)</label>
+          <textarea
+            id="message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+        {apiError && <p role="alert">{apiError}</p>}
+        <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Sending…' : 'Send Invoice'}
+        </button>
+      </form>
     </div>
   );
 }
-
-const overlay: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-};
-const panel: React.CSSProperties = {
-  background: '#fff', borderRadius: 8, padding: 32, minWidth: 400, maxWidth: 520,
-  boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-};
-const inputStyle: React.CSSProperties = {
-  display: 'block', width: '100%', padding: '8px 10px',
-  marginTop: 4, boxSizing: 'border-box', fontSize: 14,
-};
