@@ -1,0 +1,13 @@
+# This directory must contain the following TTF font files for server-side PDF rendering.
+# Download and commit each file before deploying:
+#
+#   Inter.ttf            — https://fonts.google.com/specimen/Inter
+#   Roboto.ttf           — https://fonts.google.com/specimen/Roboto
+#   Lato.ttf             — https://fonts.google.com/specimen/Lato
+#   Merriweather.ttf     — https://fonts.google.com/specimen/Merriweather
+#   OpenSans.ttf         — https://fonts.google.com/specimen/Open+Sans
+#   PlayfairDisplay.ttf  — https://fonts.google.com/specimen/Playfair+Display
+#   Montserrat.ttf       — https://fonts.google.com/specimen/Montserrat
+#
+# All fonts are licensed under the SIL Open Font License (OFL).
+# PDFKit loads these at render time — zero external network dependency.

@@ -1,0 +1,56 @@
+/*
+ * @font-face declarations for the 7 PO-approved fonts (T25).
+ * Files are served statically from /public/fonts/ and must be copied
+ * from assets/fonts/ as part of the build step.
+ * This ensures the FontSelector UI renders each option in its own typeface
+ * without any CDN dependency.
+ */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/public/fonts/Inter.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('/public/fonts/Roboto.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('/public/fonts/Lato.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/public/fonts/Merriweather.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenSans';
+  src: url('/public/fonts/OpenSans.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlayfairDisplay';
+  src: url('/public/fonts/PlayfairDisplay.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/public/fonts/Montserrat.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
