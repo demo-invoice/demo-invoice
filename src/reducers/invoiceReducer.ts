@@ -52,9 +52,12 @@ export function invoiceReducer(state: InvoiceState, action: InvoiceAction): Invo
     case 'LOAD_SAVED_INVOICE': {
       // Spread defaults first so any optional fields missing from the snapshot
       // do not result in undefined access.
+      const defaults = buildDefaultActive();
       const restoredActive: ActiveInvoice = {
-        ...buildDefaultActive(),
+        ...defaults,
         ...action.payload,
+        // Guard against explicit undefined in the payload overwriting the default array.
+        lineItems: action.payload.lineItems ?? defaults.lineItems,
       };
       // NOTE: lineItems are restored in state from the saved snapshot but are
       // not yet surfaced in the form UI. A future iteration should render the
