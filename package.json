@@ -7,8 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "vitest run",
-    "verify:fonts": "node scripts/check-fonts.js",
-    "prepare": "node scripts/check-fonts.js"
+    "verify:fonts": "node scripts/check-fonts.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",

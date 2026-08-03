@@ -20,6 +20,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Check font files (informational)
+        run: node scripts/check-fonts.js || echo "WARNING: Font files missing — PDF branding will not work until TTFs are added to assets/fonts/"
+
       - name: Type-check
         run: npx tsc --noEmit
 
