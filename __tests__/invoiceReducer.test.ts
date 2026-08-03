@@ -1,3 +1,8 @@
+/**
+ * Unit tests for invoiceReducer (T24).
+ * Covers all action types in the discriminated union and the CI guard
+ * for unrecognised action types / invalid status values.
+ */
 import { describe, it, expect } from 'vitest';
 import { invoiceReducer } from '../src/context/InvoiceContext';
 import type { Invoice, InvoiceAction } from '../src/types/invoice';
@@ -14,45 +19,68 @@ const baseInvoice: Invoice = {
   status: 'Draft',
 };
 
-describe('invoiceReducer', () => {
-  it('UPDATE_INVOICE_STATUS sets status to Sent', () => {
+// ── UPDATE_INVOICE_STATUS ─────────────────────────────────────────────────────
+
+describe('invoiceReducer — UPDATE_INVOICE_STATUS', () => {
+  it('sets status to Sent', () => {
     const action: InvoiceAction = { type: 'UPDATE_INVOICE_STATUS', payload: 'Sent' };
-    const next = invoiceReducer(baseInvoice, action);
-    expect(next.status).toBe('Sent');
+    expect(invoiceReducer(baseInvoice, action).status).toBe('Sent');
   });
 
-  it('UPDATE_INVOICE_STATUS sets status to Paid', () => {
+  it('sets status to Paid', () => {
     const action: InvoiceAction = { type: 'UPDATE_INVOICE_STATUS', payload: 'Paid' };
-    const next = invoiceReducer(baseInvoice, action);
-    expect(next.status).toBe('Paid');
+    expect(invoiceReducer(baseInvoice, action).status).toBe('Paid');
   });
 
-  it('UPDATE_INVOICE_STATUS does not mutate other fields', () => {
+  it('sets status back to Draft', () => {
+    const sentInvoice: Invoice = { ...baseInvoice, status: 'Sent' };
+    const action: InvoiceAction = { type: 'UPDATE_INVOICE_STATUS', payload: 'Draft' };
+    expect(invoiceReducer(sentInvoice, action).status).toBe('Draft');
+  });
+
+  it('does not mutate other fields when updating status', () => {
     const action: InvoiceAction = { type: 'UPDATE_INVOICE_STATUS', payload: 'Sent' };
     const next = invoiceReducer(baseInvoice, action);
     expect(next.clientName).toBe(baseInvoice.clientName);
     expect(next.number).toBe(baseInvoice.number);
+    expect(next.clientEmail).toBe(baseInvoice.clientEmail);
   });
 
-  it('SET_INVOICE replaces the entire invoice', () => {
+  it('returns state unchanged for an unrecognised status value', () => {
+    const action = {
+      type: 'UPDATE_INVOICE_STATUS',
+      payload: 'Archived',
+    } as unknown as InvoiceAction;
+    const next = invoiceReducer(baseInvoice, action);
+    expect(next.status).toBe('Draft');
+  });
+});
+
+// ── SET_INVOICE ───────────────────────────────────────────────────────────────
+
+describe('invoiceReducer — SET_INVOICE', () => {
+  it('replaces the entire invoice', () => {
     const newInvoice: Invoice = { ...baseInvoice, id: '2', number: '002', status: 'Paid' };
     const action: InvoiceAction = { type: 'SET_INVOICE', payload: newInvoice };
     const next = invoiceReducer(baseInvoice, action);
     expect(next.id).toBe('2');
+    expect(next.number).toBe('002');
     expect(next.status).toBe('Paid');
   });
 
-  it('SET_INVOICE defaults status to Draft when absent', () => {
-    // Simulate a legacy invoice object without status
+  it('defaults status to Draft when payload status is absent (legacy invoice)', () => {
     const legacy = { ...baseInvoice } as Invoice;
-    // Force-remove status to simulate legacy data
     (legacy as Partial<Invoice>).status = undefined as unknown as Invoice['status'];
     const action: InvoiceAction = { type: 'SET_INVOICE', payload: legacy };
     const next = invoiceReducer(baseInvoice, action);
     expect(next.status).toBe('Draft');
   });
+});
 
-  it('UPDATE_FIELD patches a single field', () => {
+// ── UPDATE_FIELD ──────────────────────────────────────────────────────────────
+
+describe('invoiceReducer — UPDATE_FIELD', () => {
+  it('patches clientName without affecting other fields', () => {
     const action: InvoiceAction = {
       type: 'UPDATE_FIELD',
       payload: { field: 'clientName', value: 'New Client' },
@@ -60,21 +88,34 @@ describe('invoiceReducer', () => {
     const next = invoiceReducer(baseInvoice, action);
     expect(next.clientName).toBe('New Client');
     expect(next.status).toBe('Draft');
+    expect(next.number).toBe(baseInvoice.number);
   });
 
-  it('unrecognised action type returns state unchanged (CI guard)', () => {
-    // Cast to bypass TS exhaustiveness — simulates a runtime unknown action
+  it('patches clientEmail', () => {
+    const action: InvoiceAction = {
+      type: 'UPDATE_FIELD',
+      payload: { field: 'clientEmail', value: 'new@client.com' },
+    };
+    const next = invoiceReducer(baseInvoice, action);
+    expect(next.clientEmail).toBe('new@client.com');
+  });
+
+  it('patches notes', () => {
+    const action: InvoiceAction = {
+      type: 'UPDATE_FIELD',
+      payload: { field: 'notes', value: 'Please pay promptly.' },
+    };
+    const next = invoiceReducer(baseInvoice, action);
+    expect(next.notes).toBe('Please pay promptly.');
+  });
+});
+
+// ── Unknown action (CI guard) ─────────────────────────────────────────────────
+
+describe('invoiceReducer — unknown action type', () => {
+  it('returns the same state reference for an unrecognised action type', () => {
     const action = { type: 'UNKNOWN_ACTION' } as unknown as InvoiceAction;
     const next = invoiceReducer(baseInvoice, action);
-    expect(next).toBe(baseInvoice); // referential equality — no copy made
-  });
-
-  it('UPDATE_INVOICE_STATUS with unrecognised value returns state unchanged', () => {
-    const action = {
-      type: 'UPDATE_INVOICE_STATUS',
-      payload: 'Archived',
-    } as unknown as InvoiceAction;
-    const next = invoiceReducer(baseInvoice, action);
-    expect(next.status).toBe('Draft');
+    expect(next).toBe(baseInvoice);
   });
 });
