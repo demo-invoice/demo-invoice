@@ -28,24 +28,42 @@ describe('SendInvoiceButton', () => {
     expect(screen.getByRole('button', { name: /Send Invoice/i })).toBeInTheDocument();
   });
 
-  it('opens the modal when clicked', () => {
+  it('modal is not visible before the button is clicked', () => {
+    render(<SendInvoiceButton invoice={testInvoice} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens the modal when the button is clicked', () => {
     render(<SendInvoiceButton invoice={testInvoice} />);
     fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('modal can be dismissed via the close button', () => {
+  it('modal title contains the invoice number', () => {
     render(<SendInvoiceButton invoice={testInvoice} />);
     fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Send Invoice #INV-099/i)).toBeInTheDocument();
+  });
+
+  it('dismisses the modal via the close (✕) button', () => {
+    render(<SendInvoiceButton invoice={testInvoice} />);
+    fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
     fireEvent.click(screen.getByRole('button', { name: /Close modal/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('modal can be dismissed via the Cancel button', () => {
+  it('dismisses the modal via the Cancel button', () => {
     render(<SendInvoiceButton invoice={testInvoice} />);
     fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
     fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('can reopen the modal after it has been closed', () => {
+    render(<SendInvoiceButton invoice={testInvoice} />);
+    fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send Invoice/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

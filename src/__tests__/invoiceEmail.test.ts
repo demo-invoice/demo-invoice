@@ -16,23 +16,83 @@ const baseInvoice: Invoice = {
   ],
 };
 
+describe('buildInvoiceBody', () => {
+  it('includes the invoice number', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('INV-042');
+  });
+
+  it('includes the company name', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('Acme Corp');
+  });
+
+  it('includes the client name', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('Bob Builder');
+  });
+
+  it('includes the issued date', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('2024-07-01');
+  });
+
+  it('includes the due date', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('2024-07-31');
+  });
+
+  it('includes a custom message when provided', () => {
+    expect(buildInvoiceBody(baseInvoice, 'Hello Bob!')).toContain('Hello Bob!');
+  });
+
+  it('does not include a blank custom message prefix', () => {
+    const body = buildInvoiceBody(baseInvoice, '');
+    // Body should start with the invoice number line, not a blank line from an empty message
+    expect(body.startsWith('Invoice #')).toBe(true);
+  });
+
+  it('calculates subtotal correctly (2×$50 + 1×$200 = $300)', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('$300.00');
+  });
+
+  it('calculates tax correctly (10% of $300 = $30)', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('$30.00');
+  });
+
+  it('calculates total correctly ($300 + $30 = $330)', () => {
+    expect(buildInvoiceBody(baseInvoice, '')).toContain('$330.00');
+  });
+
+  it('renders gracefully with zero line items — shows (No line items)', () => {
+    const body = buildInvoiceBody({ ...baseInvoice, lineItems: [] }, '');
+    expect(body).toContain('(No line items)');
+  });
+
+  it('shows zero totals for an invoice with no line items', () => {
+    const body = buildInvoiceBody({ ...baseInvoice, lineItems: [] }, '');
+    expect(body).toContain('$0.00');
+  });
+
+  it('includes line item descriptions', () => {
+    const body = buildInvoiceBody(baseInvoice, '');
+    expect(body).toContain('Widget A');
+    expect(body).toContain('Service B');
+  });
+});
+
 describe('buildMailtoUri', () => {
   it('starts with the mailto: scheme', () => {
-    const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'Test Subject', '');
+    const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'Subject', '');
     expect(uri.startsWith('mailto:')).toBe(true);
   });
 
-  it('encodes the recipient in the URI', () => {
+  it('encodes the recipient address in the URI', () => {
     const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'Subject', '');
     expect(uri).toContain(encodeURIComponent('bob@example.com'));
   });
 
-  it('includes the subject in the URI', () => {
+  it('encodes the subject in the URI', () => {
     const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'My Subject', '');
     expect(uri).toContain(encodeURIComponent('My Subject'));
   });
 
-  it('includes the body in the URI', () => {
+  it('includes a body parameter', () => {
     const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'Subject', '');
     expect(uri).toContain('body=');
   });
@@ -42,12 +102,17 @@ describe('buildMailtoUri', () => {
     expect(uri).toContain(encodeURIComponent('Invoice #INV-042 from Acme Corp'));
   });
 
-  it('truncates body and appends notice when URI exceeds 2000 chars', () => {
+  it('uses a default subject when subject is whitespace-only', () => {
+    const uri = buildMailtoUri(baseInvoice, 'bob@example.com', '   ', '');
+    expect(uri).toContain(encodeURIComponent('Invoice #INV-042 from Acme Corp'));
+  });
+
+  it('truncates body and appends truncation notice when URI exceeds 2000 chars', () => {
     const longInvoice: Invoice = {
       ...baseInvoice,
       lineItems: Array.from({ length: 50 }, (_, i) => ({
         id: String(i),
-        description: `A very long description for item number ${i} that adds bulk`,
+        description: `A very long description for item number ${i} that adds bulk to the body`,
         quantity: 10,
         unitPrice: 99.99,
       })),
@@ -58,39 +123,13 @@ describe('buildMailtoUri', () => {
   });
 
   it('renders gracefully with zero line items', () => {
-    const emptyInvoice: Invoice = { ...baseInvoice, lineItems: [] };
-    const uri = buildMailtoUri(emptyInvoice, 'bob@example.com', 'Subject', '');
+    const uri = buildMailtoUri({ ...baseInvoice, lineItems: [] }, 'bob@example.com', 'Subject', '');
     expect(uri).toContain('body=');
-    expect(uri).toContain(encodeURIComponent('No line items'));
-  });
-});
-
-describe('buildInvoiceBody', () => {
-  it('includes invoice number', () => {
-    const body = buildInvoiceBody(baseInvoice, '');
-    expect(body).toContain('INV-042');
+    expect(uri).toContain(encodeURIComponent('(No line items)'));
   });
 
-  it('includes company name', () => {
-    const body = buildInvoiceBody(baseInvoice, '');
-    expect(body).toContain('Acme Corp');
-  });
-
-  it('includes the custom message when provided', () => {
-    const body = buildInvoiceBody(baseInvoice, 'Hello Bob!');
-    expect(body).toContain('Hello Bob!');
-  });
-
-  it('calculates totals correctly', () => {
-    // subtotal = 2*50 + 1*200 = 300; tax = 30; total = 330
-    const body = buildInvoiceBody(baseInvoice, '');
-    expect(body).toContain('$300.00');
-    expect(body).toContain('$30.00');
-    expect(body).toContain('$330.00');
-  });
-
-  it('shows zero totals for empty line items', () => {
-    const body = buildInvoiceBody({ ...baseInvoice, lineItems: [] }, '');
-    expect(body).toContain('$0.00');
+  it('includes a custom message in the body', () => {
+    const uri = buildMailtoUri(baseInvoice, 'bob@example.com', 'Subject', 'Hi Bob!');
+    expect(uri).toContain(encodeURIComponent('Hi Bob!'));
   });
 });

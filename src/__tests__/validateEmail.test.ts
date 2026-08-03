@@ -30,11 +30,11 @@ describe('isValidEmail', () => {
     expect(isValidEmail('user@example')).toBe(false);
   });
 
-  it('rejects an address with only one TLD char', () => {
+  it('rejects an address with a single-char TLD', () => {
     expect(isValidEmail('user@example.c')).toBe(false);
   });
 
-  it('rejects an address with spaces', () => {
+  it('rejects an address containing spaces', () => {
     expect(isValidEmail('user @example.com')).toBe(false);
   });
 
