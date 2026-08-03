@@ -3,15 +3,14 @@ import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import { brandingRouter } from './brandingRoutes';
 
-// Mock the service layer so tests don't need a real SQLite DB
 vi.mock('../../services/brandingService', () => ({
-  getBranding: vi.fn((userId: string) => ({
+  getBranding: vi.fn((_userId: string) => ({
     primary_color: '#2563EB',
     secondary_color: '#64748B',
     font_family: 'Inter',
   })),
   upsertBranding: vi.fn((_userId: string, payload: unknown) => ({
-    ...payload,
+    ...(payload as object),
   })),
   getDefaultBranding: vi.fn(() => ({
     primary_color: '#2563EB',
@@ -22,11 +21,9 @@ vi.mock('../../services/brandingService', () => ({
 
 import * as brandingService from '../../services/brandingService';
 
-/** Build a test Express app with a fake auth middleware injecting a user id. */
 function buildApp(authedUserId: string) {
   const app = express();
   app.use(express.json());
-  // Inject fake authenticated user
   app.use((req: Request & { user?: { id: string } }, _res: Response, next: NextFunction) => {
     req.user = { id: authedUserId };
     next();
@@ -35,8 +32,16 @@ function buildApp(authedUserId: string) {
   return app;
 }
 
+const VALID_PAYLOAD = {
+  primary_color: '#FF5733',
+  secondary_color: '#33FF57',
+  font_family: 'Roboto',
+};
+
 describe('GET /api/users/:userId/branding', () => {
-  it('returns defaults for a new user', async () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns 200 with branding defaults for a matching user', async () => {
     const app = buildApp('user-1');
     const res = await request(app).get('/api/users/user-1/branding');
     expect(res.status).toBe(200);
@@ -47,60 +52,94 @@ describe('GET /api/users/:userId/branding', () => {
     });
   });
 
-  it('returns 403 when accessing another user\'s branding', async () => {
+  it('calls getBranding with the correct userId', async () => {
+    const app = buildApp('user-42');
+    await request(app).get('/api/users/user-42/branding');
+    expect(brandingService.getBranding).toHaveBeenCalledWith('user-42');
+  });
+
+  it('returns 403 when authenticated user does not match :userId', async () => {
     const app = buildApp('user-1');
     const res = await request(app).get('/api/users/user-2/branding');
     expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('does not call getBranding when 403 is returned', async () => {
+    const app = buildApp('user-1');
+    await request(app).get('/api/users/user-2/branding');
+    expect(brandingService.getBranding).not.toHaveBeenCalled();
   });
 });
 
 describe('PUT /api/users/:userId/branding', () => {
-  const validPayload = {
-    primary_color: '#FF5733',
-    secondary_color: '#33FF57',
-    font_family: 'Roboto',
-  };
+  beforeEach(() => vi.clearAllMocks());
 
-  it('saves and returns the branding record on valid input', async () => {
+  it('returns 200 with saved branding on valid input', async () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-1/branding')
-      .send(validPayload);
+      .send(VALID_PAYLOAD);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject(validPayload);
+    expect(res.body).toMatchObject(VALID_PAYLOAD);
   });
 
-  it('returns 400 with field error for invalid hex color', async () => {
+  it('calls upsertBranding with userId and validated payload', async () => {
+    const app = buildApp('user-1');
+    await request(app).put('/api/users/user-1/branding').send(VALID_PAYLOAD);
+    expect(brandingService.upsertBranding).toHaveBeenCalledWith('user-1', VALID_PAYLOAD);
+  });
+
+  it('returns 400 with field error for invalid primary_color (#GGG)', async () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-1/branding')
-      .send({ ...validPayload, primary_color: '#GGG' });
+      .send({ ...VALID_PAYLOAD, primary_color: '#GGG' });
     expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error', 'Validation failed');
     expect(res.body.fields).toHaveProperty('primary_color');
   });
 
-  it('returns 400 for shorthand hex (#FFF)', async () => {
+  it('returns 400 for shorthand hex on secondary_color (#FFF)', async () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-1/branding')
-      .send({ ...validPayload, secondary_color: '#FFF' });
+      .send({ ...VALID_PAYLOAD, secondary_color: '#FFF' });
     expect(res.status).toBe(400);
     expect(res.body.fields).toHaveProperty('secondary_color');
   });
 
-  it('returns 400 for named color ("red")', async () => {
+  it('returns 400 for named color as primary_color (red)', async () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-1/branding')
-      .send({ ...validPayload, primary_color: 'red' });
+      .send({ ...VALID_PAYLOAD, primary_color: 'red' });
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for hex without leading hash (2563EB)', async () => {
+    const app = buildApp('user-1');
+    const res = await request(app)
+      .put('/api/users/user-1/branding')
+      .send({ ...VALID_PAYLOAD, primary_color: '2563EB' });
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toHaveProperty('primary_color');
   });
 
   it('returns 400 for font not in approved list', async () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-1/branding')
-      .send({ ...validPayload, font_family: '../../etc/passwd' });
+      .send({ ...VALID_PAYLOAD, font_family: 'Comic Sans' });
+    expect(res.status).toBe(400);
+    expect(res.body.fields).toHaveProperty('font_family');
+  });
+
+  it('returns 400 for path-traversal font name (../../etc/passwd)', async () => {
+    const app = buildApp('user-1');
+    const res = await request(app)
+      .put('/api/users/user-1/branding')
+      .send({ ...VALID_PAYLOAD, font_family: '../../etc/passwd' });
     expect(res.status).toBe(400);
     expect(res.body.fields).toHaveProperty('font_family');
   });
@@ -109,7 +148,30 @@ describe('PUT /api/users/:userId/branding', () => {
     const app = buildApp('user-1');
     const res = await request(app)
       .put('/api/users/user-2/branding')
-      .send(validPayload);
+      .send(VALID_PAYLOAD);
     expect(res.status).toBe(403);
+  });
+
+  it('does not call upsertBranding when 403 is returned', async () => {
+    const app = buildApp('user-1');
+    await request(app).put('/api/users/user-2/branding').send(VALID_PAYLOAD);
+    expect(brandingService.upsertBranding).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for missing primary_color field', async () => {
+    const app = buildApp('user-1');
+    const { primary_color: _, ...rest } = VALID_PAYLOAD;
+    const res = await request(app).put('/api/users/user-1/branding').send(rest);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 500 when upsertBranding throws a non-Zod error', async () => {
+    vi.mocked(brandingService.upsertBranding).mockImplementationOnce(() => {
+      throw new Error('DB connection lost');
+    });
+    const app = buildApp('user-1');
+    const res = await request(app).put('/api/users/user-1/branding').send(VALID_PAYLOAD);
+    expect(res.status).toBe(500);
+    expect(res.body).toHaveProperty('error', 'Internal server error');
   });
 });
