@@ -1,80 +1,103 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
-import { InvoiceForm } from '../components/InvoiceForm';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InvoiceProvider } from '../context/InvoiceContext';
-import {
-  INVOICE_HISTORY_KEY,
-} from '../services/invoiceStorage';
-import type { SavedInvoiceEntry } from '../types/invoice';
+import { InvoiceForm } from '../components/InvoiceForm';
+import { INVOICE_STORAGE_KEY, INVOICE_HISTORY_KEY } from '../services/invoiceStorage';
 
-function renderWithProvider(ui: React.ReactElement) {
-  return render(<InvoiceProvider>{ui}</InvoiceProvider>);
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => { store[key] = value; },
+    removeItem: (key: string) => { delete store[key]; },
+    clear: () => { store = {}; },
+  };
+})();
+
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
+
+function renderForm(onSaved = vi.fn()) {
+  return render(
+    <InvoiceProvider>
+      <InvoiceForm onSaved={onSaved} />
+    </InvoiceProvider>
+  );
 }
 
 beforeEach(() => {
-  localStorage.clear();
+  localStorageMock.clear();
 });
 
 describe('InvoiceForm', () => {
-  it('renders the invoice form', () => {
-    renderWithProvider(<InvoiceForm onSaved={() => {}} />);
-    expect(screen.getByText(/invoice/i)).toBeInTheDocument();
+  it('renders invoice number field', () => {
+    renderForm();
+    expect(screen.getByLabelText(/invoice number/i)).toBeTruthy();
   });
 
-  it('renders the Save Invoice button', () => {
-    renderWithProvider(<InvoiceForm onSaved={() => {}} />);
-    expect(screen.getByRole('button', { name: /save invoice/i })).toBeInTheDocument();
+  it('renders Save Invoice button', () => {
+    renderForm();
+    expect(screen.getByRole('button', { name: /save invoice/i })).toBeTruthy();
   });
 
-  it('renders the New Invoice button', () => {
-    renderWithProvider(<InvoiceForm onSaved={() => {}} />);
-    expect(screen.getByRole('button', { name: /new invoice/i })).toBeInTheDocument();
+  it('renders New Invoice button', () => {
+    renderForm();
+    expect(screen.getByRole('button', { name: /new invoice/i })).toBeTruthy();
   });
 
-  it('saving an invoice appends to history', () => {
-    renderWithProvider(<InvoiceForm onSaved={() => {}} />);
-    const saveBtn = screen.getByRole('button', { name: /save invoice/i });
-    fireEvent.click(saveBtn);
-    const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
-    expect(raw).not.toBeNull();
-    const parsed = JSON.parse(raw!) as SavedInvoiceEntry[];
-    expect(parsed).toHaveLength(1);
+  it('saves invoice to history on Save Invoice click', () => {
+    const onSaved = vi.fn();
+    renderForm(onSaved);
+
+    const invoiceNumberInput = screen.getByLabelText(/invoice number/i);
+    fireEvent.change(invoiceNumberInput, { target: { value: 'INV-001' } });
+
+    const saveButton = screen.getByRole('button', { name: /save invoice/i });
+    fireEvent.click(saveButton);
+
+    expect(onSaved).toHaveBeenCalledTimes(1);
+
+    const stored = localStorageMock.getItem(INVOICE_HISTORY_KEY);
+    expect(stored).not.toBeNull();
+    const history = JSON.parse(stored!);
+    expect(Array.isArray(history)).toBe(true);
+    expect(history.length).toBe(1);
+    expect(history[0].snapshot.invoiceNumber).toBe('INV-001');
   });
 
-  it('New Invoice reset does not touch history', () => {
-    renderWithProvider(<InvoiceForm onSaved={() => {}} />);
-    const saveBtn = screen.getByRole('button', { name: /save invoice/i });
-    fireEvent.click(saveBtn);
-    const newBtn = screen.getByRole('button', { name: /new invoice/i });
-    fireEvent.click(newBtn);
-    const historyRaw = localStorage.getItem(INVOICE_HISTORY_KEY);
-    expect(historyRaw).not.toBeNull();
-    const parsed = JSON.parse(historyRaw!) as SavedInvoiceEntry[];
-    expect(parsed).toHaveLength(1);
+  it('persists active invoice to localStorage on field change', () => {
+    renderForm();
+    const invoiceNumberInput = screen.getByLabelText(/invoice number/i);
+    fireEvent.change(invoiceNumberInput, { target: { value: 'INV-002' } });
+
+    const stored = localStorageMock.getItem(INVOICE_STORAGE_KEY);
+    expect(stored).not.toBeNull();
+    const active = JSON.parse(stored!);
+    expect(active.invoiceNumber).toBe('INV-002');
   });
 
-  it('loading a saved invoice dispatches LOAD_SAVED_INVOICE and updates form state', () => {
-    const { appendInvoiceHistory } = require('../services/invoiceStorage');
-    const entry: SavedInvoiceEntry = {
-      id: 'load-test-id',
-      label: 'INV-999 — 2024-06-01',
-      savedAt: new Date().toISOString(),
-      snapshot: {
-        invoiceNumber: 'INV-999',
-        issueDate: '2024-06-01',
-        dueDate: '2024-07-01',
-        from: 'Test From',
-        to: 'Test To',
-        lineItems: [],
-      },
-    };
-    appendInvoiceHistory(entry);
-    const _active = localStorage.getItem('invoice_active');
+  it('New Invoice clears active invoice but not history', () => {
+    renderForm();
 
-    // Re-render with the saved snapshot loaded via context
-    const { loadInvoiceHistory } = require('../services/invoiceStorage');
-    const history = loadInvoiceHistory();
-    expect(history).toHaveLength(1);
-    expect(history[0].snapshot.invoiceNumber).toBe('INV-999');
+    // Save an invoice first
+    const invoiceNumberInput = screen.getByLabelText(/invoice number/i);
+    fireEvent.change(invoiceNumberInput, { target: { value: 'INV-003' } });
+    const saveButton = screen.getByRole('button', { name: /save invoice/i });
+    fireEvent.click(saveButton);
+
+    // Verify history has an entry
+    const historyBefore = JSON.parse(localStorageMock.getItem(INVOICE_HISTORY_KEY)!);
+    expect(historyBefore.length).toBe(1);
+
+    // Click New Invoice
+    const newButton = screen.getByRole('button', { name: /new invoice/i });
+    fireEvent.click(newButton);
+
+    // Active invoice key should be removed
+    expect(localStorageMock.getItem(INVOICE_STORAGE_KEY)).toBeNull();
+
+    // History should be untouched
+    const historyAfter = JSON.parse(localStorageMock.getItem(INVOICE_HISTORY_KEY)!);
+    expect(historyAfter.length).toBe(1);
   });
 });

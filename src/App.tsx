@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'react';
-import { InvoiceProvider } from './context/InvoiceContext';
+import React, { useState, useCallback } from 'react';
+import { InvoiceProvider, useInvoice } from './context/InvoiceContext';
 import { InvoiceForm } from './components/InvoiceForm';
 import { InvoiceHistory } from './components/InvoiceHistory';
-import { loadInvoiceHistory, appendInvoiceHistory } from './services/invoiceStorage';
-import type { SavedInvoiceEntry } from './types/invoice';
-import { useInvoice } from './context/InvoiceContext';
+import { loadInvoiceHistory } from './services/invoiceStorage';
+import type { SavedInvoiceEntry, InvoiceState } from './types/invoice';
 
 function AppInner() {
   const { dispatch } = useInvoice();
@@ -15,7 +14,7 @@ function AppInner() {
   }, []);
 
   const handleLoad = useCallback((entry: SavedInvoiceEntry) => {
-    dispatch({ type: 'LOAD_SAVED_INVOICE', payload: entry.snapshot });
+    dispatch({ type: 'LOAD_SAVED_INVOICE', payload: entry.snapshot as InvoiceState });
   }, [dispatch]);
 
   return (

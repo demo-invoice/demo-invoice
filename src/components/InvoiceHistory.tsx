@@ -1,9 +1,7 @@
 /**
  * Panel displaying the list of saved invoice history entries.
  */
-import React from 'react';
 import type { SavedInvoiceEntry } from '../types/invoice';
-import { useInvoice } from '../context/InvoiceContext';
 
 interface InvoiceHistoryProps {
   savedInvoices: SavedInvoiceEntry[];
