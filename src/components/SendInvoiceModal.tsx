@@ -65,7 +65,7 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
       setSent(true);
       onSuccess();
     } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Failed to send invoice. Please try again.');
+      setApiError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
 
   if (sent) {
     return (
-      <div role="dialog" aria-modal="true">
+      <div role="dialog" aria-modal="true" aria-label="Invoice sent">
         <p>Invoice sent successfully!</p>
         <button onClick={onClose}>Close</button>
       </div>
@@ -81,21 +81,22 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
   }
 
   return (
-    <div role="dialog" aria-modal="true">
+    <div role="dialog" aria-modal="true" aria-label="Send Invoice">
       <h2>Send Invoice</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div>
-          <label htmlFor="recipientEmail">Recipient Email</label>
+          <label htmlFor="recipientEmail">Recipient Email *</label>
           <input
             id="recipientEmail"
             type="email"
             value={recipientEmail}
             onChange={handleEmailChange}
-            placeholder="client@example.com"
             disabled={loading}
+            required
           />
           {emailError && <span role="alert">{emailError}</span>}
         </div>
+
         <div>
           <label htmlFor="subject">Subject</label>
           <input
@@ -106,8 +107,9 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
             disabled={loading}
           />
         </div>
+
         <div>
-          <label htmlFor="message">Message (optional)</label>
+          <label htmlFor="message">Message</label>
           <textarea
             id="message"
             value={message}
@@ -115,11 +117,17 @@ export function SendInvoiceModal({ invoice, onClose, onSuccess }: Props) {
             disabled={loading}
           />
         </div>
+
         {apiError && <p role="alert">{apiError}</p>}
-        <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
-        <button type="submit" disabled={loading}>
-          {loading ? 'Sending…' : 'Send Invoice'}
-        </button>
+
+        <div>
+          <button type="button" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Sending…' : 'Send Invoice'}
+          </button>
+        </div>
       </form>
     </div>
   );
