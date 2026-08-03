@@ -1,8 +1,7 @@
-// vi.mock must appear before any import that transitively pulls in db.ts
-// to satisfy Vitest's hoisting rules.
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-vi.mock('../../src/db.js', () => ({
+// Must be hoisted before any import that transitively pulls in db.ts
+vi.mock('../db.js', () => ({
   getDb: vi.fn(),
 }));
 
@@ -41,8 +40,7 @@ describe('GET /api/users/:userId/branding', () => {
   it('returns 200 with defaults when no record exists', async () => {
     vi.spyOn(brandingService, 'getBranding').mockReturnValue(DEFAULT_BRANDING);
 
-    const app = buildApp();
-    const res = await request(app)
+    const res = await request(buildApp())
       .get('/api/users/42/branding')
       .set('Authorization', `Bearer ${makeToken('42')}`);
 
@@ -55,21 +53,28 @@ describe('GET /api/users/:userId/branding', () => {
   });
 
   it('returns 200 with saved record when one exists', async () => {
-    const saved = {
-      ...DEFAULT_BRANDING,
-      primary_color: '#123456',
-      font_family: 'Roboto',
-    };
+    const saved = { ...DEFAULT_BRANDING, primary_color: '#123456', font_family: 'Roboto' };
     vi.spyOn(brandingService, 'getBranding').mockReturnValue(saved);
 
-    const app = buildApp();
-    const res = await request(app)
+    const res = await request(buildApp())
       .get('/api/users/42/branding')
       .set('Authorization', `Bearer ${makeToken('42')}`);
 
     expect(res.status).toBe(200);
     expect(res.body.primary_color).toBe('#123456');
     expect(res.body.font_family).toBe('Roboto');
+  });
+
+  it('returns 401 when Authorization header is missing', async () => {
+    const res = await request(buildApp()).get('/api/users/42/branding');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when JWT userId does not match route :userId', async () => {
+    const res = await request(buildApp())
+      .get('/api/users/42/branding')
+      .set('Authorization', `Bearer ${makeToken('99')}`);
+    expect(res.status).toBe(403);
   });
 });
 
@@ -78,7 +83,7 @@ describe('PUT /api/users/:userId/branding', () => {
     vi.restoreAllMocks();
   });
 
-  it('(1) valid payload → 200 with saved record', async () => {
+  it('(1) valid payload returns 200 with the saved branding record', async () => {
     const saved = {
       ...DEFAULT_BRANDING,
       primary_color: '#AABBCC',
@@ -87,48 +92,83 @@ describe('PUT /api/users/:userId/branding', () => {
     };
     vi.spyOn(brandingService, 'upsertBranding').mockReturnValue(saved);
 
-    const app = buildApp();
-    const res = await request(app)
+    const res = await request(buildApp())
       .put('/api/users/42/branding')
       .set('Authorization', `Bearer ${makeToken('42')}`)
-      .send({
-        primary_color: '#AABBCC',
-        secondary_color: '#112233',
-        font_family: 'Open Sans',
-      });
+      .send({ primary_color: '#AABBCC', secondary_color: '#112233', font_family: 'Open Sans' });
 
     expect(res.status).toBe(200);
     expect(res.body.primary_color).toBe('#AABBCC');
+    expect(res.body.secondary_color).toBe('#112233');
     expect(res.body.font_family).toBe('Open Sans');
   });
 
-  it('(2) invalid hex color → 400 with field errors', async () => {
-    const app = buildApp();
-    const res = await request(app)
+  it('(2) 7-digit hex color returns 400 with field-level Zod errors', async () => {
+    const res = await request(buildApp())
       .put('/api/users/42/branding')
       .set('Authorization', `Bearer ${makeToken('42')}`)
-      .send({
-        primary_color: '#1A2B3CD', // 7 hex digits — invalid
-        secondary_color: '#FFFFFF',
-        font_family: 'Inter',
-      });
+      .send({ primary_color: '#1A2B3CD', secondary_color: '#FFFFFF', font_family: 'Inter' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Validation failed');
     expect(res.body.fields).toHaveProperty('primary_color');
   });
 
-  it('(3) JWT userId ≠ route :userId → 403', async () => {
-    const app = buildApp();
-    const res = await request(app)
+  it('(2b) non-hex string color returns 400 with field-level errors', async () => {
+    const res = await request(buildApp())
       .put('/api/users/42/branding')
-      .set('Authorization', `Bearer ${makeToken('99')}`) // token says 99, route says 42
-      .send({
-        primary_color: '#000000',
-        secondary_color: '#FFFFFF',
-        font_family: 'Inter',
-      });
+      .set('Authorization', `Bearer ${makeToken('42')}`)
+      .send({ primary_color: 'notahex', secondary_color: '#FFFFFF', font_family: 'Inter' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+    expect(res.body.fields).toHaveProperty('primary_color');
+  });
+
+  it('(2c) font not in APPROVED_FONTS returns 400 with field-level errors', async () => {
+    const res = await request(buildApp())
+      .put('/api/users/42/branding')
+      .set('Authorization', `Bearer ${makeToken('42')}`)
+      .send({ primary_color: '#000000', secondary_color: '#FFFFFF', font_family: 'Comic Sans' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+    expect(res.body.fields).toHaveProperty('font_family');
+  });
+
+  it('(3) JWT userId does not match route :userId returns 403', async () => {
+    const res = await request(buildApp())
+      .put('/api/users/42/branding')
+      .set('Authorization', `Bearer ${makeToken('99')}`)
+      .send({ primary_color: '#000000', secondary_color: '#FFFFFF', font_family: 'Inter' });
 
     expect(res.status).toBe(403);
+  });
+
+  it('returns 401 when Authorization header is missing', async () => {
+    const res = await request(buildApp())
+      .put('/api/users/42/branding')
+      .send({ primary_color: '#000000', secondary_color: '#FFFFFF', font_family: 'Inter' });
+    expect(res.status).toBe(401);
+  });
+
+  it('all seven approved fonts are accepted', async () => {
+    const approvedFonts = [
+      'Inter', 'Roboto', 'Lato', 'Open Sans',
+      'Merriweather', 'Playfair Display', 'Source Sans Pro',
+    ];
+
+    for (const font of approvedFonts) {
+      const saved = { ...DEFAULT_BRANDING, font_family: font };
+      vi.spyOn(brandingService, 'upsertBranding').mockReturnValue(saved);
+
+      const res = await request(buildApp())
+        .put('/api/users/42/branding')
+        .set('Authorization', `Bearer ${makeToken('42')}`)
+        .send({ primary_color: '#000000', secondary_color: '#FFFFFF', font_family: font });
+
+      expect(res.status).toBe(200);
+      vi.restoreAllMocks();
+    }
   });
 });
