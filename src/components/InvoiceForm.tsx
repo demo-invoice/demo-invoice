@@ -1,7 +1,7 @@
 /**
  * Main invoice form wired to InvoiceContext.
  */
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useInvoice } from '../context/InvoiceContext';
 import { saveActiveInvoice } from '../services/invoiceStorage';
 import { SaveInvoiceButton } from './SaveInvoiceButton';
@@ -60,94 +60,80 @@ export function InvoiceForm({ onSaved }: InvoiceFormProps) {
       <h2>Invoice</h2>
 
       <div>
-        <label htmlFor="invoiceNumber">Invoice Number</label><br />
-        <input
-          id="invoiceNumber"
-          type="text"
-          value={state.invoiceNumber}
-          onChange={(e) => dispatch({ type: 'SET_INVOICE_NUMBER', payload: e.target.value })}
-        />
+        <label>
+          Invoice Number
+          <input
+            value={state.invoiceNumber}
+            onChange={(e) => dispatch({ type: 'SET_INVOICE_NUMBER', payload: e.target.value })}
+          />
+        </label>
       </div>
 
       <div>
-        <label htmlFor="issueDate">Issue Date</label><br />
-        <input
-          id="issueDate"
-          type="date"
-          value={state.issueDate}
-          onChange={(e) => dispatch({ type: 'SET_ISSUE_DATE', payload: e.target.value })}
-        />
+        <label>
+          Issue Date
+          <input
+            type="date"
+            value={state.issueDate}
+            onChange={(e) => dispatch({ type: 'SET_ISSUE_DATE', payload: e.target.value })}
+          />
+        </label>
       </div>
 
       <div>
-        <label htmlFor="dueDate">Due Date</label><br />
-        <input
-          id="dueDate"
-          type="date"
-          value={state.dueDate}
-          onChange={(e) => dispatch({ type: 'SET_DUE_DATE', payload: e.target.value })}
-        />
+        <label>
+          Due Date
+          <input
+            type="date"
+            value={state.dueDate}
+            onChange={(e) => dispatch({ type: 'SET_DUE_DATE', payload: e.target.value })}
+          />
+        </label>
       </div>
 
       <div>
-        <label htmlFor="from">From</label><br />
-        <textarea
-          id="from"
-          value={state.from}
-          onChange={(e) => dispatch({ type: 'SET_FROM', payload: e.target.value })}
-        />
+        <label>
+          From
+          <textarea
+            value={state.from}
+            onChange={(e) => dispatch({ type: 'SET_FROM', payload: e.target.value })}
+          />
+        </label>
       </div>
 
       <div>
-        <label htmlFor="to">To</label><br />
-        <textarea
-          id="to"
-          value={state.to}
-          onChange={(e) => dispatch({ type: 'SET_TO', payload: e.target.value })}
-        />
+        <label>
+          To
+          <textarea
+            value={state.to}
+            onChange={(e) => dispatch({ type: 'SET_TO', payload: e.target.value })}
+          />
+        </label>
       </div>
 
       <h3>Line Items</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Qty</th>
-            <th>Unit Price</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.lineItems.map((li) => (
-            <tr key={li.id}>
-              <td>
-                <input
-                  type="text"
-                  value={li.description}
-                  onChange={(e) => handleLineItemChange(li.id, 'description', e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={li.quantity}
-                  onChange={(e) => handleLineItemChange(li.id, 'quantity', Number(e.target.value))}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={li.unitPrice}
-                  onChange={(e) => handleLineItemChange(li.id, 'unitPrice', Number(e.target.value))}
-                />
-              </td>
-              <td>
-                <button type="button" onClick={() => handleRemoveLineItem(li.id)}>Remove</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {state.lineItems.map((li) => (
+        <div key={li.id} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+          <input
+            placeholder="Description"
+            value={li.description}
+            onChange={(e) => handleLineItemChange(li.id, 'description', e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="Qty"
+            value={li.quantity}
+            onChange={(e) => handleLineItemChange(li.id, 'quantity', Number(e.target.value))}
+          />
+          <input
+            type="number"
+            placeholder="Unit Price"
+            value={li.unitPrice}
+            onChange={(e) => handleLineItemChange(li.id, 'unitPrice', Number(e.target.value))}
+          />
+          <button type="button" onClick={() => handleRemoveLineItem(li.id)}>Remove</button>
+        </div>
+      ))}
       <button type="button" onClick={handleAddLineItem}>Add Line Item</button>
 
       <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>

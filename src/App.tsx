@@ -1,37 +1,32 @@
-/**
- * Root application component.
- */
-import React, { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { InvoiceProvider } from './context/InvoiceContext';
 import { InvoiceForm } from './components/InvoiceForm';
 import { InvoiceHistory } from './components/InvoiceHistory';
-import { loadInvoiceHistory } from './services/invoiceStorage';
-import { useInvoice } from './context/InvoiceContext';
+import { loadInvoiceHistory, appendInvoiceHistory } from './services/invoiceStorage';
 import type { SavedInvoiceEntry } from './types/invoice';
+import { useInvoice } from './context/InvoiceContext';
 
-/** Inner component that has access to InvoiceProvider context. */
 function AppInner() {
   const { dispatch } = useInvoice();
   const [history, setHistory] = useState<SavedInvoiceEntry[]>(() => loadInvoiceHistory());
 
-  function refreshHistory() {
+  const handleSaved = useCallback(() => {
     setHistory(loadInvoiceHistory());
-  }
+  }, []);
 
-  function handleLoad(entry: SavedInvoiceEntry) {
+  const handleLoad = useCallback((entry: SavedInvoiceEntry) => {
     dispatch({ type: 'LOAD_SAVED_INVOICE', payload: entry.snapshot });
-  }
+  }, [dispatch]);
 
   return (
-    <div style={{ display: 'flex', gap: 24, padding: 24, fontFamily: 'sans-serif' }}>
-      <InvoiceForm onSaved={refreshHistory} />
+    <div style={{ display: 'flex', gap: 24, padding: 24 }}>
+      <InvoiceForm onSaved={handleSaved} />
       <InvoiceHistory savedInvoices={history} onLoad={handleLoad} />
     </div>
   );
 }
 
-/** Root component — wraps everything in InvoiceProvider. */
-export function App() {
+export default function App() {
   return (
     <InvoiceProvider>
       <AppInner />

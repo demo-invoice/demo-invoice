@@ -1,117 +1,99 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import React from 'react';
-import { InvoiceProvider } from '../context/InvoiceContext';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InvoiceHistory } from '../components/InvoiceHistory';
-import { appendInvoiceHistory, loadInvoiceHistory } from '../services/invoiceStorage';
-import type { SavedInvoiceEntry, InvoiceState } from '../types/invoice';
-import { useInvoice } from '../context/InvoiceContext';
+import { InvoiceProvider } from '../context/InvoiceContext';
+import type { SavedInvoiceEntry } from '../types/invoice';
 
-const snapshot1: InvoiceState = {
-  invoiceNumber: 'INV-001',
-  issueDate: '2024-01-10',
-  dueDate: '2024-02-10',
-  from: 'Sender A',
-  to: 'Recipient A',
-  lineItems: [],
+const MOCK_ENTRY: SavedInvoiceEntry = {
+  id: 'test-id-1',
+  label: 'INV-001 — 2024-01-15',
+  savedAt: '2024-01-15T10:00:00.000Z',
+  snapshot: {
+    invoiceNumber: 'INV-001',
+    issueDate: '2024-01-15',
+    dueDate: '2024-02-15',
+    from: 'Acme Corp',
+    to: 'Client Ltd',
+    lineItems: [],
+  },
 };
 
-const snapshot2: InvoiceState = {
-  invoiceNumber: 'INV-002',
-  issueDate: '2024-03-01',
-  dueDate: '2024-04-01',
-  from: 'Sender B',
-  to: 'Recipient B',
-  lineItems: [],
+const MOCK_ENTRY_2: SavedInvoiceEntry = {
+  id: 'test-id-2',
+  label: 'INV-002 — 2024-02-20',
+  savedAt: '2024-02-20T12:00:00.000Z',
+  snapshot: {
+    invoiceNumber: 'INV-002',
+    issueDate: '2024-02-20',
+    dueDate: '2024-03-20',
+    from: 'Acme Corp',
+    to: 'Another Client',
+    lineItems: [],
+  },
 };
 
-const entry1: SavedInvoiceEntry = {
-  id: 'e1',
-  label: 'INV-001 — 2024-01-10',
-  savedAt: '2024-01-10T09:00:00.000Z',
-  snapshot: snapshot1,
-};
-
-const entry2: SavedInvoiceEntry = {
-  id: 'e2',
-  label: 'INV-002 — 2024-03-01',
-  savedAt: '2024-03-01T09:00:00.000Z',
-  snapshot: snapshot2,
-};
+function renderWithProvider(ui: React.ReactElement) {
+  return render(<InvoiceProvider>{ui}</InvoiceProvider>);
+}
 
 beforeEach(() => {
   localStorage.clear();
 });
 
 describe('InvoiceHistory', () => {
-  it('renders all saved entries with label and Load button', () => {
-    render(
-      <InvoiceProvider>
-        <InvoiceHistory savedInvoices={[entry1, entry2]} onLoad={() => undefined} />
-      </InvoiceProvider>,
-    );
-
-    expect(screen.getByText('INV-001 — 2024-01-10')).toBeInTheDocument();
-    expect(screen.getByText('INV-002 — 2024-03-01')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /load/i })).toHaveLength(2);
+  it('shows empty state when no invoices are saved', () => {
+    renderWithProvider(<InvoiceHistory savedInvoices={[]} onLoad={vi.fn()} />);
+    expect(screen.getByText(/no saved invoices/i)).toBeInTheDocument();
   });
 
-  it('shows empty-state message when list is empty', () => {
-    render(
-      <InvoiceProvider>
-        <InvoiceHistory savedInvoices={[]} onLoad={() => undefined} />
-      </InvoiceProvider>,
+  it('renders a list entry for each saved invoice', () => {
+    renderWithProvider(
+      <InvoiceHistory savedInvoices={[MOCK_ENTRY, MOCK_ENTRY_2]} onLoad={vi.fn()} />
     );
-
-    expect(screen.getByText(/no saved invoices yet/i)).toBeInTheDocument();
+    expect(screen.getByText('INV-001 — 2024-01-15')).toBeInTheDocument();
+    expect(screen.getByText('INV-002 — 2024-02-20')).toBeInTheDocument();
   });
 
-  it('clicking Load dispatches LOAD_SAVED_INVOICE and updates state', async () => {
-    const user = userEvent.setup();
-
-    let capturedState: InvoiceState | null = null;
-    function StateCapture() {
-      const { state } = useInvoice();
-      capturedState = state;
-      return null;
-    }
-
-    function TestApp() {
-      const { dispatch } = useInvoice();
-      return (
-        <>
-          <StateCapture />
-          <InvoiceHistory
-            savedInvoices={[entry1]}
-            onLoad={(entry) =>
-              dispatch({ type: 'LOAD_SAVED_INVOICE', payload: entry.snapshot })
-            }
-          />
-        </>
-      );
-    }
-
-    render(
-      <InvoiceProvider>
-        <TestApp />
-      </InvoiceProvider>,
+  it('renders a Load button for each entry', () => {
+    renderWithProvider(
+      <InvoiceHistory savedInvoices={[MOCK_ENTRY, MOCK_ENTRY_2]} onLoad={vi.fn()} />
     );
-
-    await user.click(screen.getByRole('button', { name: /load/i }));
-
-    expect(capturedState?.invoiceNumber).toBe('INV-001');
-    expect(capturedState?.issueDate).toBe('2024-01-10');
+    const loadButtons = screen.getAllByRole('button', { name: /load/i });
+    expect(loadButtons).toHaveLength(2);
   });
 
-  it('history list survives simulated page reload (re-read from localStorage)', () => {
-    appendInvoiceHistory(entry1);
-    appendInvoiceHistory(entry2);
+  it('calls onLoad with the correct entry when Load is clicked', () => {
+    const onLoad = vi.fn();
+    renderWithProvider(
+      <InvoiceHistory savedInvoices={[MOCK_ENTRY, MOCK_ENTRY_2]} onLoad={onLoad} />
+    );
+    const loadButtons = screen.getAllByRole('button', { name: /load/i });
+    fireEvent.click(loadButtons[0]);
+    expect(onLoad).toHaveBeenCalledWith(MOCK_ENTRY);
+  });
 
-    // Simulate reload: read fresh from localStorage
+  it('history persists across simulated page reloads', () => {
+    const { loadInvoiceHistory, appendInvoiceHistory } = require('../services/invoiceStorage');
+    appendInvoiceHistory(MOCK_ENTRY);
+    appendInvoiceHistory(MOCK_ENTRY_2);
     const reloaded = loadInvoiceHistory();
     expect(reloaded).toHaveLength(2);
-    expect(reloaded[0].id).toBe('e1');
-    expect(reloaded[1].id).toBe('e2');
+    expect(reloaded[0].id).toBe('test-id-1');
+    expect(reloaded[1].id).toBe('test-id-2');
+  });
+
+  it('handles malformed localStorage data gracefully', () => {
+    localStorage.setItem('invoice_history', 'not-valid-json{{{');
+    const { loadInvoiceHistory } = require('../services/invoiceStorage');
+    const result = loadInvoiceHistory();
+    expect(result).toEqual([]);
+  });
+
+  it('stores issueDate as-is at save time and restores it on load', () => {
+    const { appendInvoiceHistory, loadInvoiceHistory } = require('../services/invoiceStorage');
+    appendInvoiceHistory(MOCK_ENTRY);
+    const parsed = JSON.parse(localStorage.getItem('invoice_history')!) as import('../types/invoice').SavedInvoiceEntry[];
+    expect(parsed[0].snapshot.invoiceNumber).toBe('INV-001');
+    expect(parsed[0].snapshot.issueDate).toBe('2024-01-15');
   });
 });

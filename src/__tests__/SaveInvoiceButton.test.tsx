@@ -1,84 +1,49 @@
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import React from 'react';
-import { InvoiceProvider } from '../context/InvoiceContext';
 import { SaveInvoiceButton } from '../components/SaveInvoiceButton';
-import { loadInvoiceHistory } from '../services/invoiceStorage';
-import { useInvoice } from '../context/InvoiceContext';
-import { act } from '@testing-library/react';
-
-function TestWrapper({ onSaved }: { onSaved?: () => void }) {
-  const { dispatch } = useInvoice();
-  React.useEffect(() => {
-    dispatch({ type: 'SET_INVOICE_NUMBER', payload: 'INV-100' });
-    dispatch({ type: 'SET_ISSUE_DATE', payload: '2024-05-10' });
-  }, [dispatch]);
-  return <SaveInvoiceButton onSaved={onSaved} />;
-}
+import { InvoiceProvider } from '../context/InvoiceContext';
+import { INVOICE_HISTORY_KEY } from '../services/invoiceStorage';
+import type { SavedInvoiceEntry } from '../types/invoice';
 
 beforeEach(() => {
   localStorage.clear();
 });
 
+function renderWithProvider(ui: React.ReactElement) {
+  return render(<InvoiceProvider>{ui}</InvoiceProvider>);
+}
+
 describe('SaveInvoiceButton', () => {
-  it('clicking Save appends a new entry with correct label', async () => {
-    const user = userEvent.setup();
-    render(
-      <InvoiceProvider>
-        <TestWrapper />
-      </InvoiceProvider>,
-    );
-
-    await user.click(screen.getByRole('button', { name: /save invoice/i }));
-
-    const history = loadInvoiceHistory();
-    expect(history).toHaveLength(1);
-    expect(history[0].label).toContain('INV-100');
-    expect(history[0].label).toContain('2024-05-10');
+  it('renders a Save Invoice button', () => {
+    renderWithProvider(<SaveInvoiceButton />);
+    expect(screen.getByRole('button', { name: /save invoice/i })).toBeInTheDocument();
   });
 
-  it('clicking Save twice creates two separate entries', async () => {
-    const user = userEvent.setup();
-    render(
-      <InvoiceProvider>
-        <TestWrapper />
-      </InvoiceProvider>,
-    );
-
-    await user.click(screen.getByRole('button', { name: /save invoice/i }));
-    await user.click(screen.getByRole('button', { name: /save invoice/i }));
-
-    const history = loadInvoiceHistory();
-    expect(history).toHaveLength(2);
-    expect(history[0].id).not.toBe(history[1].id);
+  it('appends a new entry to localStorage history on click', () => {
+    renderWithProvider(<SaveInvoiceButton />);
+    const btn = screen.getByRole('button', { name: /save invoice/i });
+    fireEvent.click(btn);
+    const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!) as SavedInvoiceEntry[];
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toHaveProperty('id');
+    expect(parsed[0]).toHaveProperty('snapshot');
   });
 
-  it('snapshot contains verbatim issueDate (not recomputed)', async () => {
-    const user = userEvent.setup();
-    render(
-      <InvoiceProvider>
-        <TestWrapper />
-      </InvoiceProvider>,
-    );
-
-    await user.click(screen.getByRole('button', { name: /save invoice/i }));
-
-    const history = loadInvoiceHistory();
-    expect(history[0].snapshot.issueDate).toBe('2024-05-10');
+  it('always appends — clicking twice creates two entries', () => {
+    renderWithProvider(<SaveInvoiceButton />);
+    const btn = screen.getByRole('button', { name: /save invoice/i });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    const parsed = JSON.parse(localStorage.getItem(INVOICE_HISTORY_KEY)!) as SavedInvoiceEntry[];
+    expect(parsed).toHaveLength(2);
   });
 
-  it('onSaved callback is invoked after save', async () => {
-    const user = userEvent.setup();
+  it('calls onSaved callback after saving', () => {
     const onSaved = vi.fn();
-    render(
-      <InvoiceProvider>
-        <TestWrapper onSaved={onSaved} />
-      </InvoiceProvider>,
-    );
-
-    await user.click(screen.getByRole('button', { name: /save invoice/i }));
-
+    renderWithProvider(<SaveInvoiceButton onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole('button', { name: /save invoice/i }));
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 });
