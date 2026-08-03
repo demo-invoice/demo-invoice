@@ -15,6 +15,9 @@
     "react-dom": "^18.3.1",
     "resend": "^3.2.0"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^15.0.7",
@@ -24,7 +27,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^24.0.0",
-    "msw": "^2.3.0",
+    "msw": "^2.2.14",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   }
