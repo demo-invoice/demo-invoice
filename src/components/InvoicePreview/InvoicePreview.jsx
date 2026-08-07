@@ -3,8 +3,9 @@ import { useInvoice } from '../../context/InvoiceContext.jsx';
 import { SendEmailModal } from '../SendEmailModal/SendEmailModal.jsx';
 
 /**
- * Displays a preview of the invoice, including the uploaded logo (if any),
- * invoice details, and an action to send by email.
+ * InvoicePreview — displays a preview of the current invoice.
+ * Shows the uploaded logo when available, otherwise a placeholder.
+ * Provides a "Send by Email" button that opens the SendEmailModal.
  */
 export function InvoicePreview({ invoiceData }) {
   const { logoDataUrl } = useInvoice();
@@ -14,16 +15,9 @@ export function InvoicePreview({ invoiceData }) {
     <section aria-label="Invoice preview" className="invoice-preview">
       <div className="invoice-preview__logo-area">
         {logoDataUrl ? (
-          <img
-            src={logoDataUrl}
-            alt="Business logo"
-            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' }}
-          />
+          <img src={logoDataUrl} alt="Business logo" className="invoice-preview__logo" />
         ) : (
-          <div
-            aria-label="Logo placeholder"
-            className="logo-placeholder"
-          />
+          <div aria-label="Logo placeholder" className="logo-placeholder" />
         )}
       </div>
 
