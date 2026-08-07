@@ -1,0 +1,126 @@
+/* EmailInvoiceModal — scoped styles */
+
+.email-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.email-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.email-modal__title {
+  margin: 0 0 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.email-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.email-modal__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.email-modal__input,
+.email-modal__textarea {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  color: #111827;
+  transition: border-color 0.15s;
+}
+
+.email-modal__input:focus,
+.email-modal__textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+.email-modal__input--error {
+  border-color: #dc2626;
+}
+
+.email-modal__textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.email-modal__error {
+  font-size: 0.8125rem;
+  color: #dc2626;
+}
+
+.email-modal__error--block {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.email-modal__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  color: #166534;
+  font-weight: 500;
+}
+
+.email-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.email-modal__btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.email-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.email-modal__btn--primary {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.email-modal__btn--primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.email-modal__btn--secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.email-modal__btn--secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
