@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SendEmailModal } from '../src/components/SendEmailModal/SendEmailModal.jsx';
 import * as emailService from '../src/services/emailService.js';
 
-// Mock the InvoiceContext so SendEmailModal can dispatch without a real Provider.
+// Mock InvoiceContext so SendEmailModal can dispatch without a real Provider.
 vi.mock('../src/context/InvoiceContext.jsx', () => ({
   useInvoiceContext: () => ({ dispatch: vi.fn() }),
   useInvoice: () => ({ logoDataUrl: null, emailSent: false }),
@@ -43,7 +43,7 @@ describe('SendEmailModal', () => {
 
   it('renders a Send button', () => {
     render(<SendEmailModal {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeInTheDocument();
   });
 
   it('renders a Cancel button', () => {
@@ -51,7 +51,7 @@ describe('SendEmailModal', () => {
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
-  it('calls onClose when Cancel is clicked — does NOT call emailService', async () => {
+  it('calls onClose when Cancel is clicked and does NOT call emailService', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<SendEmailModal {...defaultProps} onClose={onClose} />);
@@ -74,18 +74,37 @@ describe('SendEmailModal', () => {
     await user.type(screen.getByLabelText(/recipient email/i), 'not-an-email');
     await user.click(screen.getByRole('button', { name: /^send$/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/valid email/i);
+    expect(mockSendInvoiceEmail).not.toHaveBeenCalled();
   });
 
-  it('shows success message after a successful send', async () => {
+  it('shows "Invoice sent successfully!" after a successful send', async () => {
     mockSendInvoiceEmail.mockResolvedValueOnce(undefined);
     const user = userEvent.setup();
     render(<SendEmailModal {...defaultProps} />);
     await user.type(screen.getByLabelText(/recipient email/i), 'test@example.com');
     await user.click(screen.getByRole('button', { name: /^send$/i }));
-    expect(await screen.findByText(/sent successfully/i)).toBeInTheDocument();
+    expect(await screen.findByText(/invoice sent successfully/i)).toBeInTheDocument();
   });
 
-  it('shows error message after a failed send', async () => {
+  it('calls sendInvoiceEmail with the correct recipient email on success', async () => {
+    mockSendInvoiceEmail.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(<SendEmailModal {...defaultProps} />);
+    await user.type(screen.getByLabelText(/recipient email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /^send$/i }));
+    await screen.findByText(/invoice sent successfully/i);
+    expect(mockSendInvoiceEmail).toHaveBeenCalledOnce();
+    expect(mockSendInvoiceEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientEmail: 'test@example.com' })
+    );
+  });
+
+  it('does NOT call sendInvoiceEmail before the form is submitted', () => {
+    render(<SendEmailModal {...defaultProps} />);
+    expect(mockSendInvoiceEmail).not.toHaveBeenCalled();
+  });
+
+  it('shows an error alert after a failed send', async () => {
     mockSendInvoiceEmail.mockRejectedValueOnce(new Error('Network error'));
     const user = userEvent.setup();
     render(<SendEmailModal {...defaultProps} />);
@@ -94,13 +113,42 @@ describe('SendEmailModal', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/network error/i);
   });
 
-  it('shows a warning when invoiceData is not provided', () => {
+  it('shows a warning alert when invoiceData is not provided', () => {
     render(<SendEmailModal onClose={vi.fn()} invoiceData={undefined} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/no invoice data/i);
   });
 
-  it('disables Send button when invoiceData is undefined', () => {
+  it('disables the Send button when invoiceData is undefined', () => {
     render(<SendEmailModal onClose={vi.fn()} invoiceData={undefined} />);
     expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled();
+  });
+
+  it('renders the dialog with role="dialog" and aria-modal', () => {
+    render(<SendEmailModal {...defaultProps} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
+
+  it('shows a Close button (not Cancel) after a successful send', async () => {
+    mockSendInvoiceEmail.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(<SendEmailModal {...defaultProps} />);
+    await user.type(screen.getByLabelText(/recipient email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /^send$/i }));
+    await screen.findByText(/invoice sent successfully/i);
+    expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
+  });
+
+  it('calls onClose when the Close button is clicked after success', async () => {
+    mockSendInvoiceEmail.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<SendEmailModal {...defaultProps} onClose={onClose} />);
+    await user.type(screen.getByLabelText(/recipient email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /^send$/i }));
+    await screen.findByText(/invoice sent successfully/i);
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
