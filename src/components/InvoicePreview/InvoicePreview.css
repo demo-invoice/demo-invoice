@@ -1,0 +1,45 @@
+.invoice-preview {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 24px;
+  min-height: 400px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.invoice-preview__logo-area {
+  margin-bottom: 24px;
+}
+
+/* Grey placeholder shown when no logo has been uploaded */
+.logo-placeholder {
+  width: 200px;
+  height: 100px;
+  background-color: #cccccc;
+  border-radius: 4px;
+}
+
+/* Container for the actual logo image */
+.logo-container {
+  display: inline-block;
+  line-height: 0; /* remove inline-block gap */
+}
+
+.logo-container img {
+  max-width: 200px;
+  max-height: 100px;
+  object-fit: contain;
+  display: block;
+}
+
+.invoice-preview__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #111;
+}
+
+.invoice-preview__hint {
+  color: #666;
+  font-size: 0.9rem;
+}
