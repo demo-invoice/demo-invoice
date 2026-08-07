@@ -1,7 +1,7 @@
 import React, {
   createContext,
   useContext,
-  useState,
+  useReducer,
   useCallback,
   useMemo,
 } from 'react';
@@ -50,17 +50,64 @@ function removeLogoFromStorage() {
 }
 
 /**
- * @typedef {Object} InvoiceContextValue
+ * @typedef {'SET_LOGO' | 'REMOVE_LOGO' | 'SEND_EMAIL'} ActionType
+ *
+ * @typedef {Object} Action
+ * @property {ActionType} type
+ * @property {string} [payload]
+ *
+ * @typedef {Object} InvoiceState
  * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
- * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
- * @property {() => void} removeLogo - Clear the logo from state and storage.
+ * @property {boolean} emailSent - Whether the invoice has been sent by email.
+ *
+ * @typedef {Object} InvoiceContextValue
+ * @property {string|null} logoDataUrl
+ * @property {boolean} emailSent
+ * @property {(dataUrl: string) => void} setLogoDataUrl
+ * @property {() => void} removeLogo
+ * @property {React.Dispatch<Action>} dispatch
  */
+
+/**
+ * Initial state for the invoice reducer.
+ * @type {InvoiceState}
+ */
+const initialState = {
+  logoDataUrl: readLogoFromStorage(),
+  emailSent: false,
+};
+
+/**
+ * Invoice reducer — handles all invoice-related state transitions.
+ * Exported as a named export so it can be tested in isolation.
+ *
+ * @param {InvoiceState} state
+ * @param {Action} action
+ * @returns {InvoiceState}
+ */
+export function invoiceReducer(state, action) {
+  switch (action.type) {
+    case 'SET_LOGO':
+      return { ...state, logoDataUrl: action.payload ?? null };
+
+    case 'REMOVE_LOGO':
+      return { ...state, logoDataUrl: null };
+
+    case 'SEND_EMAIL':
+      return { ...state, emailSent: true };
+
+    default:
+      return state;
+  }
+}
 
 /** @type {React.Context<InvoiceContextValue>} */
 const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
   logoDataUrl: null,
+  emailSent: false,
   setLogoDataUrl: () => {},
   removeLogo: () => {},
+  dispatch: () => {},
 }));
 
 /**
@@ -69,21 +116,27 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
  * @param {{ children: React.ReactNode }} props
  */
 export function InvoiceProvider({ children }) {
-  const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
+  const [state, dispatch] = useReducer(invoiceReducer, initialState);
 
   const setLogoDataUrl = useCallback((dataUrl) => {
     writeLogoToStorage(dataUrl);
-    setLogoState(dataUrl);
+    dispatch({ type: 'SET_LOGO', payload: dataUrl });
   }, []);
 
   const removeLogo = useCallback(() => {
     removeLogoFromStorage();
-    setLogoState(null);
+    dispatch({ type: 'REMOVE_LOGO' });
   }, []);
 
   const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
+    () => ({
+      logoDataUrl: state.logoDataUrl,
+      emailSent: state.emailSent,
+      setLogoDataUrl,
+      removeLogo,
+      dispatch,
+    }),
+    [state.logoDataUrl, state.emailSent, setLogoDataUrl, removeLogo]
   );
 
   return (
@@ -99,5 +152,14 @@ export function InvoiceProvider({ children }) {
  * @returns {InvoiceContextValue}
  */
 export function useInvoice() {
+  return useContext(InvoiceContext);
+}
+
+/**
+ * Alias for useInvoice — used by SendEmailModal and other consumers
+ * that prefer the `useInvoiceContext` name.
+ * @returns {InvoiceContextValue}
+ */
+export function useInvoiceContext() {
   return useContext(InvoiceContext);
 }
