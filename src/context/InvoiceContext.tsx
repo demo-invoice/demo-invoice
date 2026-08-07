@@ -1,65 +1,55 @@
-/**
- * InvoiceContext — provides invoice state and dispatch to the component tree.
- *
- * Reducer handles:
- *   SET_INVOICE            — replace entire invoice
- *   UPDATE_FIELD           — patch a single typed field
- *   UPDATE_INVOICE_STATUS  — update status (e.g. 'Draft' → 'Sent')
- *
- * Status defaults to 'Draft' for legacy invoice objects that lack the field.
- */
-import React, {
-  createContext,
-  useContext,
-  useReducer,
-  type ReactNode,
-} from 'react';
-import type { Invoice, InvoiceAction, InvoiceStatus } from '@/types/invoice';
+import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 
-const DEFAULT_INVOICE: Invoice = {
-  id: '1',
-  number: '001',
-  clientName: '',
-  clientEmail: '',
-  issueDate: new Date().toISOString().slice(0, 10),
-  dueDate: '',
-  lineItems: [],
-  notes: '',
-  status: 'Draft',
-};
+export interface Invoice {
+  id: string;
+  number: string;
+  clientName: string;
+  clientEmail: string;
+  status: 'Draft' | 'Sent' | 'Paid';
+  notes: string;
+  [key: string]: unknown;
+}
 
-/** Pure reducer — returns state unchanged for unrecognised action types. */
+export type InvoiceAction =
+  | { type: 'SET_INVOICE'; payload: Invoice }
+  | { type: 'UPDATE_INVOICE_STATUS'; payload: Invoice['status'] }
+  | { type: 'UPDATE_FIELD'; payload: { field: string; value: unknown } }
+  | { type: 'SEND_EMAIL' };
+
 export function invoiceReducer(state: Invoice, action: InvoiceAction): Invoice {
   switch (action.type) {
     case 'SET_INVOICE':
       return { ...action.payload, status: action.payload.status ?? 'Draft' };
-
-    case 'UPDATE_FIELD':
-      return { ...state, [action.payload.field]: action.payload.value };
-
     case 'UPDATE_INVOICE_STATUS': {
-      const allowed: InvoiceStatus[] = ['Draft', 'Sent', 'Paid'];
-      if (!allowed.includes(action.payload)) return state;
+      const validStatuses: Invoice['status'][] = ['Draft', 'Sent', 'Paid'];
+      if (!validStatuses.includes(action.payload)) return state;
       return { ...state, status: action.payload };
     }
-
+    case 'UPDATE_FIELD':
+      return { ...state, [action.payload.field]: action.payload.value };
+    case 'SEND_EMAIL':
+      return state;
     default:
-      // Exhaustiveness guard — keeps CI honest if a new action is added
-      // without a matching case.
       return state;
   }
 }
 
-interface InvoiceContextValue {
+const InvoiceContext = createContext<{
   invoice: Invoice;
   dispatch: React.Dispatch<InvoiceAction>;
-}
+} | null>(null);
 
-const InvoiceContext = createContext<InvoiceContextValue | null>(null);
+const defaultInvoice: Invoice = {
+  id: '',
+  number: '',
+  clientName: '',
+  clientEmail: '',
+  status: 'Draft',
+  notes: '',
+};
 
-/** Wrap the app (or a subtree) with this provider to access invoice state. */
 export function InvoiceProvider({ children }: { children: ReactNode }) {
-  const [invoice, dispatch] = useReducer(invoiceReducer, DEFAULT_INVOICE);
+  const [invoice, dispatch] = useReducer(invoiceReducer, defaultInvoice);
   return (
     <InvoiceContext.Provider value={{ invoice, dispatch }}>
       {children}
@@ -67,14 +57,8 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Hook to consume InvoiceContext.
- * Throws if used outside of InvoiceProvider.
- */
-export function useInvoice(): InvoiceContextValue {
+export function useInvoice() {
   const ctx = useContext(InvoiceContext);
-  if (!ctx) {
-    throw new Error('useInvoice must be used within an InvoiceProvider');
-  }
+  if (!ctx) throw new Error('useInvoice must be used within an InvoiceProvider');
   return ctx;
 }
