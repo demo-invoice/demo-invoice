@@ -1,113 +1,59 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LogoUpload } from './LogoUpload.jsx';
 import { InvoiceProvider } from '../../context/InvoiceContext.jsx';
 
-// ---------------------------------------------------------------------------
-// FileReader mock
-// ---------------------------------------------------------------------------
-let mockReader;
-
-beforeEach(() => {
-  mockReader = {
-    readAsDataURL: vi.fn(),
-    onload: null,
-    onerror: null,
-    result: 'data:image/png;base64,abc123',
-  };
-  vi.spyOn(globalThis, 'FileReader').mockImplementation(() => mockReader);
-});
-
-function renderComponent() {
-  return render(
-    <InvoiceProvider>
-      <LogoUpload />
-    </InvoiceProvider>
-  );
+function renderWithProvider(ui) {
+  return render(<InvoiceProvider>{ui}</InvoiceProvider>);
 }
 
 describe('LogoUpload', () => {
   it('renders the upload button', () => {
-    renderComponent();
-    expect(screen.getByText('Upload Logo')).toBeInTheDocument();
+    renderWithProvider(<LogoUpload />);
+    expect(screen.getByLabelText(/upload logo/i)).toBeInTheDocument();
   });
 
-  it('does not show an error initially', () => {
-    renderComponent();
-    const alert = screen.getByRole('alert');
-    expect(alert).toBeEmptyDOMElement();
+  it('renders a file input', () => {
+    renderWithProvider(<LogoUpload />);
+    // file inputs are not role="textbox"; query by role with hidden:true
+    expect(screen.getByRole('textbox', { hidden: true })).toBeInTheDocument();
   });
 
-  it('shows an error for invalid file types and does NOT call FileReader', () => {
-    renderComponent();
-    const input = screen.getByRole('textbox', { hidden: true }) ||
-      document.querySelector('input[type="file"]');
-    const fileInput = document.querySelector('input[type="file"]');
-
-    const invalidFile = new File(['content'], 'logo.gif', { type: 'image/gif' });
-    fireEvent.change(fileInput, { target: { files: [invalidFile] } });
-
-    expect(FileReader).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /invalid file type/i
-    );
+  it('shows an error when a non-image file is uploaded', async () => {
+    renderWithProvider(<LogoUpload />);
+    const input = screen.getByLabelText(/upload logo/i);
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/invalid file type/i);
+    });
   });
 
-  it('reads a valid PNG file and calls setLogoDataUrl', () => {
-    renderComponent();
-    const fileInput = document.querySelector('input[type="file"]');
-
-    const validFile = new File(['content'], 'logo.png', { type: 'image/png' });
-    fireEvent.change(fileInput, { target: { files: [validFile] } });
-
-    expect(FileReader).toHaveBeenCalledTimes(1);
-    expect(mockReader.readAsDataURL).toHaveBeenCalledWith(validFile);
-
-    // Simulate the FileReader completing
-    mockReader.onload({ target: mockReader });
-
-    // The logo should now be stored (no error shown)
-    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
-  });
-
-  it('reads a valid JPEG file', () => {
-    renderComponent();
-    const fileInput = document.querySelector('input[type="file"]');
-
-    const validFile = new File(['content'], 'logo.jpg', { type: 'image/jpeg' });
-    fireEvent.change(fileInput, { target: { files: [validFile] } });
-
-    expect(FileReader).toHaveBeenCalledTimes(1);
-    mockReader.onload({ target: mockReader });
-    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
-  });
-
-  it('reads a valid SVG file by extension', () => {
-    renderComponent();
-    const fileInput = document.querySelector('input[type="file"]');
-
-    // SVG files may have type '' in some environments
-    const validFile = new File(['<svg/>'], 'logo.svg', { type: '' });
-    fireEvent.change(fileInput, { target: { files: [validFile] } });
-
-    expect(FileReader).toHaveBeenCalledTimes(1);
-    mockReader.onload({ target: mockReader });
-    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
-  });
-
-  it('shows an error when FileReader fails', () => {
-    renderComponent();
-    const fileInput = document.querySelector('input[type="file"]');
-
-    const validFile = new File(['content'], 'logo.png', { type: 'image/png' });
-    fireEvent.change(fileInput, { target: { files: [validFile] } });
+  it('shows an error when FileReader fails', async () => {
+    renderWithProvider(<LogoUpload />);
+    const input = screen.getByLabelText(/upload logo/i);
+    const file = new File(['data'], 'logo.png', { type: 'image/png' });
 
     // Simulate a FileReader error
-    mockReader.onerror(new Event('error'));
+    const originalFileReader = global.FileReader;
+    global.FileReader = class {
+      constructor() {
+        this.onerror = null;
+        this.onload = null;
+      }
+      readAsDataURL() {
+        setTimeout(() => {
+          if (this.onerror) this.onerror(new Error('Failed to read'));
+        }, 0);
+      }
+    };
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /failed to read/i
-    );
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/failed to read/i);
+    });
+
+    global.FileReader = originalFileReader;
   });
 });

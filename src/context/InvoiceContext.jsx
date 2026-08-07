@@ -73,7 +73,7 @@ function removeLogoFromStorage() {
  * @type {InvoiceState}
  */
 const initialState = {
-  logoDataUrl: readLogoFromStorage(),
+  logoDataUrl: null,
   emailSent: false,
 };
 
@@ -116,7 +116,10 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
  * @param {{ children: React.ReactNode }} props
  */
 export function InvoiceProvider({ children }) {
-  const [state, dispatch] = useReducer(invoiceReducer, initialState);
+  const [state, dispatch] = useReducer(invoiceReducer, undefined, () => ({
+    logoDataUrl: readLogoFromStorage(),
+    emailSent: false,
+  }));
 
   const setLogoDataUrl = useCallback((dataUrl) => {
     writeLogoToStorage(dataUrl);
