@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: './src/test/setup.js',
+    setupFiles: './src/setupTests.js',
+    env: {
+      VITE_SUPABASE_FUNCTIONS_URL: 'https://test.supabase.co/functions/v1',
+    },
   },
 });

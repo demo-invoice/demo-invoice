@@ -1,7 +1,7 @@
 import React, {
   createContext,
   useContext,
-  useState,
+  useReducer,
   useCallback,
   useMemo,
 } from 'react';
@@ -9,38 +9,34 @@ import React, {
 const STORAGE_KEY = 'invoice_logo';
 
 /**
+ * Action type for updating the invoice status after a successful email send.
+ * Exported so consumers (e.g. SendEmailModal) can import the constant.
+ */
+export const UPDATE_INVOICE_STATUS = 'UPDATE_INVOICE_STATUS';
+
+/**
  * Safely read a value from localStorage.
- * Returns null if localStorage is unavailable or the stored value is invalid.
  * @returns {string|null}
  */
 function readLogoFromStorage() {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    if (value && value.startsWith('data:image/')) {
-      return value;
-    }
+    if (value && value.startsWith('data:image/')) return value;
     return null;
   } catch {
     return null;
   }
 }
 
-/**
- * Safely write a value to localStorage.
- * Silently swallows errors (e.g. private browsing quota).
- * @param {string} dataUrl
- */
+/** @param {string} dataUrl */
 function writeLogoToStorage(dataUrl) {
   try {
     localStorage.setItem(STORAGE_KEY, dataUrl);
   } catch {
-    // Degrade gracefully — feature still works in-memory.
+    // Degrade gracefully.
   }
 }
 
-/**
- * Safely remove the logo entry from localStorage.
- */
 function removeLogoFromStorage() {
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -50,40 +46,100 @@ function removeLogoFromStorage() {
 }
 
 /**
+ * @typedef {Object} LineItem
+ * @property {string} description
+ * @property {number} quantity
+ * @property {number} unitPrice
+ */
+
+/**
+ * @typedef {Object} InvoiceState
+ * @property {string|null} logoDataUrl
+ * @property {string} clientName
+ * @property {string} clientEmail
+ * @property {LineItem[]} lineItems
+ * @property {number} subtotal
+ * @property {number} tax
+ * @property {number} total
+ * @property {string} invoiceNumber
+ * @property {string} invoiceDate
+ * @property {string} dueDate
+ * @property {string} status
+ */
+
+/** @type {InvoiceState} */
+const initialState = {
+  logoDataUrl: null,
+  clientName: '',
+  clientEmail: '',
+  lineItems: [],
+  subtotal: 0,
+  tax: 0,
+  total: 0,
+  invoiceNumber: '',
+  invoiceDate: '',
+  dueDate: '',
+  status: 'draft',
+};
+
+/**
  * @typedef {Object} InvoiceContextValue
- * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
- * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
- * @property {() => void} removeLogo - Clear the logo from state and storage.
+ * @property {InvoiceState} invoiceState
+ * @property {(dataUrl: string) => void} setLogoDataUrl
+ * @property {() => void} removeLogo
+ * @property {(action: { type: string, payload?: unknown }) => void} dispatch
  */
 
 /** @type {React.Context<InvoiceContextValue>} */
 const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
-  logoDataUrl: null,
+  invoiceState: initialState,
   setLogoDataUrl: () => {},
   removeLogo: () => {},
+  dispatch: () => {},
 }));
 
 /**
+ * Reducer for invoice state.
+ * @param {InvoiceState} state
+ * @param {{ type: string, payload?: unknown }} action
+ * @returns {InvoiceState}
+ */
+function invoiceReducer(state, action) {
+  switch (action.type) {
+    case UPDATE_INVOICE_STATUS:
+      return { ...state, status: /** @type {string} */ (action.payload) };
+    case 'SET_LOGO':
+      return { ...state, logoDataUrl: /** @type {string} */ (action.payload) };
+    case 'REMOVE_LOGO':
+      return { ...state, logoDataUrl: null };
+    default:
+      return state;
+  }
+}
+
+/**
  * Provides shared invoice state to the component tree.
- * Rehydrates logoDataUrl from localStorage on first render.
  * @param {{ children: React.ReactNode }} props
  */
 export function InvoiceProvider({ children }) {
-  const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
+  const [invoiceState, dispatch] = useReducer(invoiceReducer, {
+    ...initialState,
+    logoDataUrl: readLogoFromStorage(),
+  });
 
   const setLogoDataUrl = useCallback((dataUrl) => {
     writeLogoToStorage(dataUrl);
-    setLogoState(dataUrl);
+    dispatch({ type: 'SET_LOGO', payload: dataUrl });
   }, []);
 
   const removeLogo = useCallback(() => {
     removeLogoFromStorage();
-    setLogoState(null);
+    dispatch({ type: 'REMOVE_LOGO' });
   }, []);
 
   const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
+    () => ({ invoiceState, setLogoDataUrl, removeLogo, dispatch }),
+    [invoiceState, setLogoDataUrl, removeLogo, dispatch]
   );
 
   return (
