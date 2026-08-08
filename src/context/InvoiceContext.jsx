@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useReducer,
 } from 'react';
 
 const STORAGE_KEY = 'invoice_logo';
@@ -50,10 +51,40 @@ function removeLogoFromStorage() {
 }
 
 /**
+ * @typedef {'idle'|'sent'} InvoiceStatus
+ *
+ * @typedef {Object} InvoiceState
+ * @property {InvoiceStatus} status
+ *
+ * @typedef {{ type: 'UPDATE_INVOICE_STATUS', payload: InvoiceStatus }} UpdateInvoiceStatusAction
+ * @typedef {UpdateInvoiceStatusAction} InvoiceAction
+ */
+
+/** @type {InvoiceState} */
+const initialInvoiceState = { status: 'idle' };
+
+/**
+ * Reducer for invoice-level actions.
+ * @param {InvoiceState} state
+ * @param {InvoiceAction} action
+ * @returns {InvoiceState}
+ */
+function invoiceReducer(state, action) {
+  switch (action.type) {
+    case 'UPDATE_INVOICE_STATUS':
+      return { ...state, status: action.payload };
+    default:
+      return state;
+  }
+}
+
+/**
  * @typedef {Object} InvoiceContextValue
  * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
  * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
  * @property {() => void} removeLogo - Clear the logo from state and storage.
+ * @property {InvoiceState} invoiceState - Current invoice-level state.
+ * @property {React.Dispatch<InvoiceAction>} dispatch - Dispatch invoice actions.
  */
 
 /** @type {React.Context<InvoiceContextValue>} */
@@ -61,6 +92,8 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
   logoDataUrl: null,
   setLogoDataUrl: () => {},
   removeLogo: () => {},
+  invoiceState: initialInvoiceState,
+  dispatch: () => {},
 }));
 
 /**
@@ -70,6 +103,7 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
  */
 export function InvoiceProvider({ children }) {
   const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
+  const [invoiceState, dispatch] = useReducer(invoiceReducer, initialInvoiceState);
 
   const setLogoDataUrl = useCallback((dataUrl) => {
     writeLogoToStorage(dataUrl);
@@ -82,8 +116,8 @@ export function InvoiceProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
+    () => ({ logoDataUrl, setLogoDataUrl, removeLogo, invoiceState, dispatch }),
+    [logoDataUrl, setLogoDataUrl, removeLogo, invoiceState]
   );
 
   return (

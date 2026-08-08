@@ -6,8 +6,10 @@ import './InvoicePreview.css';
  * InvoicePreview component.
  * Displays the uploaded business logo if one exists, otherwise shows a grey
  * placeholder box in the logo position of the invoice.
+ *
+ * @param {{ onSendEmail?: () => void }} props
  */
-export function InvoicePreview() {
+export function InvoicePreview({ onSendEmail }) {
   const { logoDataUrl } = useInvoice();
 
   return (
@@ -36,6 +38,14 @@ export function InvoicePreview() {
           Your invoice details will appear here.
         </p>
       </div>
+
+      {onSendEmail && (
+        <div className="invoice-preview__actions">
+          <button type="button" onClick={onSendEmail}>
+            Send by Email
+          </button>
+        </div>
+      )}
     </section>
   );
 }
