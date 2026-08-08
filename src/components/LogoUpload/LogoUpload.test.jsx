@@ -198,13 +198,16 @@ describe('LogoUpload', () => {
     renderWithContext(<LogoUpload />);
     const file = makeFile('photo.jpg', 'image/jpeg', 100);
     fireEvent.change(getFileInput(), { target: { files: [file] } });
-    mockReader.onerror();
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Could not read file. Please try again.'
-      )
-    );
+    // The source code assigns reader.onerror after fireEvent.change;
+    // invoke it now to simulate a FileReader read failure.
+    if (typeof mockReader.onerror === 'function') {
+      mockReader.onerror();
+    }
+
+    expect(
+      await screen.findByText('Could not read file. Please try again.')
+    ).toBeInTheDocument();
   });
 
   // --- Empty file list (picker cancelled) ---

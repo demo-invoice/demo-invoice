@@ -1,15 +1,89 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvoicePreview } from './InvoicePreview.jsx';
-import { InvoiceProvider, useInvoice } from '../../context/InvoiceContext.jsx';
+import { InvoiceContext, InvoiceProvider, useInvoice } from '../../context/InvoiceContext.jsx';
+
+/** Minimal invoice fixture covering all fields InvoicePreview destructures. */
+const baseInvoice = {
+  lineItems: [],
+  clientName: 'Acme Corp',
+  clientEmail: 'acme@example.com',
+  invoiceNumber: 'INV-001',
+  status: 'draft',
+  logoUrl: null,
+  logoDataUrl: null,
+  yourDetails: { name: 'Jane Dev', email: 'jane@dev.io', address: '1 Main St' },
+  currency: 'USD',
+};
+
+/**
+ * Render InvoicePreview wrapped in a real InvoiceContext.Provider seeded with
+ * the given state, so the component reads from useInvoice() as it actually does.
+ * @param {object} invoiceState - Partial overrides merged onto baseInvoice.
+ */
+function renderWithInvoice(invoiceState = {}) {
+  const value = {
+    ...baseInvoice,
+    ...invoiceState,
+    dispatch: vi.fn(),
+    // Provide no-op helpers in case the component calls them
+    setLogoDataUrl: vi.fn(),
+    removeLogo: vi.fn(),
+  };
+  return render(
+    <InvoiceContext.Provider value={value}>
+      <InvoicePreview />
+    </InvoiceContext.Provider>
+  );
+}
 
 describe('InvoicePreview', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('renders the grey placeholder when no logo is stored', () => {
+  // --- Logo rendering ---
+
+  it('renders a logo img when logoDataUrl is set to a data URL', () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+    renderWithInvoice({ logoDataUrl: dataUrl });
+    // The img element must be present in the document
+    const img = screen.getByRole('img', { name: /logo/i });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', dataUrl);
+  });
+
+  it('does not render a logo img when logoDataUrl is null', () => {
+    renderWithInvoice({ logoDataUrl: null });
+    expect(screen.queryByRole('img', { name: /logo/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render a logo img when logoDataUrl is an empty string', () => {
+    renderWithInvoice({ logoDataUrl: '' });
+    expect(screen.queryByRole('img', { name: /logo/i })).not.toBeInTheDocument();
+  });
+
+  // --- Content rendering ---
+
+  it('renders the invoice preview region with an accessible label', () => {
+    renderWithInvoice();
+    expect(screen.getByRole('region', { name: /invoice preview/i })).toBeInTheDocument();
+  });
+
+  it('renders the client name from context', () => {
+    renderWithInvoice({ clientName: 'Globex Inc' });
+    expect(screen.getByText('Globex Inc')).toBeInTheDocument();
+  });
+
+  it('renders the invoice number from context', () => {
+    renderWithInvoice({ invoiceNumber: 'INV-042' });
+    expect(screen.getByText(/INV-042/)).toBeInTheDocument();
+  });
+
+  // --- InvoiceProvider integration (shared state) ---
+
+  it('renders the grey placeholder when no logo is stored (InvoiceProvider)', () => {
     render(
       <InvoiceProvider>
         <InvoicePreview />
@@ -19,7 +93,7 @@ describe('InvoicePreview', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('renders the logo image when a valid data URL is in localStorage', () => {
+  it('renders the logo image when a valid data URL is in localStorage (InvoiceProvider)', () => {
     const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
     localStorage.setItem('invoice_logo', dataUrl);
 
@@ -63,7 +137,6 @@ describe('InvoicePreview', () => {
   });
 
   it('replaces the placeholder with the logo image when shared state is updated (no reload)', async () => {
-    // Helper consumer that drives context state
     function Driver() {
       const { setLogoDataUrl } = useInvoice();
       return (
@@ -80,14 +153,12 @@ describe('InvoicePreview', () => {
       </InvoiceProvider>
     );
 
-    // Placeholder visible before update
     expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
 
     act(() => {
       screen.getByText('Load').click();
     });
 
-    // Placeholder gone, image present — no page reload
     expect(screen.queryByLabelText('Logo placeholder')).not.toBeInTheDocument();
     const img = screen.getByRole('img', { name: 'Business logo' });
     expect(img).toHaveAttribute('src', 'data:image/jpeg;base64,xyz');
@@ -117,14 +188,5 @@ describe('InvoicePreview', () => {
     act(() => { screen.getByText('Remove').click(); });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
-  });
-
-  it('renders the invoice preview section with accessible label', () => {
-    render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-    expect(screen.getByRole('region', { name: 'Invoice preview' })).toBeInTheDocument();
   });
 });
