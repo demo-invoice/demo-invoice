@@ -16,9 +16,17 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: package.json
+          # Fallback so a cache miss on first run (no lockfile yet) doesn't fail
+        continue-on-error: false
 
       - name: Install dependencies
         run: npm install
+
+      - name: Build
+        run: npm run build
+        env:
+          # Provide a dummy value so Vite doesn't warn about missing env var during build
+          VITE_SUPABASE_FUNCTIONS_URL: https://placeholder.supabase.co/functions/v1
 
       - name: Run tests
         run: npm test
