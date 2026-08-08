@@ -127,4 +127,20 @@ describe('InvoicePreview', () => {
     );
     expect(screen.getByRole('region', { name: 'Invoice preview' })).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------------
+  // Smoke test: Send Invoice by Email button is present
+  // (deep modal behaviour is covered in SendInvoiceModal.test.jsx)
+  // -------------------------------------------------------------------------
+
+  it('renders the "Send Invoice by Email" button', () => {
+    render(
+      <InvoiceProvider>
+        <InvoicePreview />
+      </InvoiceProvider>
+    );
+    expect(
+      screen.getByRole('button', { name: 'Send Invoice by Email' })
+    ).toBeInTheDocument();
+  });
 });

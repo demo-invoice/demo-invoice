@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useInvoice } from '../../context/InvoiceContext.jsx';
+import { SendInvoiceModal } from './SendInvoiceModal.jsx';
 import './InvoicePreview.css';
 
 /**
  * InvoicePreview component.
- * Displays the uploaded business logo if one exists, otherwise shows a grey
- * placeholder box in the logo position of the invoice.
+ *
+ * Displays the uploaded business logo (or a grey placeholder), the invoice
+ * body, and a "Send Invoice by Email" button that opens the SendInvoiceModal.
+ * On a successful send the modal closes and a success banner is shown here.
  */
 export function InvoicePreview() {
   const { logoDataUrl } = useInvoice();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  /** Opens the send-email modal and clears any previous success banner. */
+  function handleOpenModal() {
+    setSuccessMessage('');
+    setIsModalOpen(true);
+  }
+
+  /** Closes the modal without triggering a success message. */
+  function handleCloseModal() {
+    setIsModalOpen(false);
+  }
+
+  /** Called by SendInvoiceModal when the server confirms the email was sent. */
+  function handleSendSuccess() {
+    setIsModalOpen(false);
+    setSuccessMessage('Invoice sent successfully!');
+  }
 
   return (
     <section className="invoice-preview" aria-label="Invoice preview">
@@ -36,6 +58,27 @@ export function InvoicePreview() {
           Your invoice details will appear here.
         </p>
       </div>
+
+      {successMessage && (
+        <p className="modal-success" role="status">
+          {successMessage}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="send-invoice-btn"
+        onClick={handleOpenModal}
+      >
+        Send Invoice by Email
+      </button>
+
+      <SendInvoiceModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSuccess={handleSendSuccess}
+        invoiceId={undefined}
+      />
     </section>
   );
 }

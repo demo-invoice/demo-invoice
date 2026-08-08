@@ -43,3 +43,190 @@
   color: #666;
   font-size: 0.9rem;
 }
+
+/* -------------------------------------------------------------------------
+   Send Invoice by Email — trigger button
+   ---------------------------------------------------------------------- */
+
+.send-invoice-btn {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 10px 20px;
+  background-color: #0057ff;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.send-invoice-btn:hover {
+  background-color: #0041cc;
+}
+
+.send-invoice-btn:focus-visible {
+  outline: 3px solid #0057ff;
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+   Success banner (rendered in InvoicePreview after modal closes)
+   ---------------------------------------------------------------------- */
+
+.modal-success {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* -------------------------------------------------------------------------
+   Modal overlay — fixed fullscreen semi-transparent backdrop
+   ---------------------------------------------------------------------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* -------------------------------------------------------------------------
+   Modal dialog — centered white card
+   ---------------------------------------------------------------------- */
+
+.modal-dialog {
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: #111;
+}
+
+.modal-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+/* -------------------------------------------------------------------------
+   Email input
+   ---------------------------------------------------------------------- */
+
+.modal-email-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.modal-email-input:focus {
+  outline: none;
+  border-color: #0057ff;
+  box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.15);
+}
+
+.modal-email-input[aria-invalid='true'] {
+  border-color: #c0392b;
+}
+
+/* -------------------------------------------------------------------------
+   Inline error message
+   ---------------------------------------------------------------------- */
+
+.modal-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c0392b;
+  font-weight: 500;
+}
+
+/* -------------------------------------------------------------------------
+   Action buttons row
+   ---------------------------------------------------------------------- */
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.modal-cancel-btn {
+  padding: 9px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: transparent;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.modal-cancel-btn:hover:not(:disabled) {
+  background-color: #f5f5f5;
+}
+
+.modal-submit-btn {
+  padding: 9px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background-color: #0057ff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.modal-submit-btn:hover:not(:disabled) {
+  background-color: #0041cc;
+}
+
+/* Disabled state — covers both loading and explicit disabled */
+.modal-submit-btn:disabled,
+.modal-cancel-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------------------------
+   Loading indicator (button text changes to 'Sending…' — no extra element
+   needed, but keep this class available for future spinner icon use)
+   ---------------------------------------------------------------------- */
+
+.modal-loading-indicator {
+  display: inline-block;
+  margin-right: 6px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
