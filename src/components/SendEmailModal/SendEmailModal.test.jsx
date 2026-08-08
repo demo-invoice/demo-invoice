@@ -51,12 +51,45 @@ function renderModal(invoiceOverrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Provide the env var for tests that reach the fetch call.
   import.meta.env.VITE_SUPABASE_FUNCTIONS_URL = 'https://example.supabase.co/functions/v1';
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+describe('SendEmailModal — rendering', () => {
+  it('renders the heading exactly as "Send Invoice by Email"', () => {
+    renderModal();
+    expect(
+      screen.getByRole('heading', { name: 'Send Invoice by Email' })
+    ).toBeInTheDocument();
+  });
+
+  it('renders a Send button and a Cancel button', () => {
+    renderModal();
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+  });
+
+  it('pre-fills the email input from invoice.clientEmail', () => {
+    renderModal({ clientEmail: 'prefilled@example.com' });
+    expect(screen.getByRole('textbox')).toHaveValue('prefilled@example.com');
+  });
+
+  it('sets aria-invalid="false" on the input when there is no error', () => {
+    renderModal();
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it('renders inside a dialog element with aria-modal="true"', () => {
+    renderModal();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -68,10 +101,8 @@ describe('SendEmailModal — validation', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     renderModal();
 
-    // Clear the input to ensure it is empty
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '' } });
-
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
     await waitFor(() => {
@@ -82,13 +113,11 @@ describe('SendEmailModal — validation', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('shows an inline error and does not call fetch for an address missing @', async () => {
+  it('shows an inline error and does not call fetch for whitespace-only input', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     renderModal();
 
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'notanemail' },
-    });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
     await waitFor(() => {
@@ -96,6 +125,56 @@ describe('SendEmailModal — validation', () => {
     });
 
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline error and does not call fetch for an address missing @', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    renderModal();
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'notanemail' } });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline error and does not call fetch for an address missing TLD', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    renderModal();
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'user@nodot' } });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('clears the validation error when the user corrects the input', async () => {
+    renderModal();
+
+    // Trigger validation error
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    // Fix the input — error should clear
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'valid@example.com' } });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'false');
   });
 });
 
@@ -111,14 +190,14 @@ describe('SendEmailModal — success path', () => {
 
     renderModal({ clientEmail: 'client@example.com' });
 
-    // The input is pre-filled from clientEmail prop
     expect(screen.getByRole('textbox')).toHaveValue('client@example.com');
 
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
-    // Button should show loading state
+    // Loading state: Send button label changes to "Sending…" and buttons are disabled
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /sending/i })).toBeTruthy();
+      const sendingBtn = screen.queryByRole('button', { name: /sending/i });
+      expect(sendingBtn).toBeTruthy();
     });
 
     await waitFor(() => {
@@ -129,6 +208,24 @@ describe('SendEmailModal — success path', () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables both buttons while the request is in flight', async () => {
+    let resolveResponse;
+    vi.spyOn(globalThis, 'fetch').mockReturnValueOnce(
+      new Promise((res) => { resolveResponse = res; })
+    );
+
+    renderModal({ clientEmail: 'client@example.com' });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sending/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /^cancel$/i })).toBeDisabled();
+    });
+
+    // Resolve to avoid dangling promise
+    resolveResponse(new Response(JSON.stringify({ ok: true }), { status: 200 }));
   });
 });
 
@@ -146,7 +243,6 @@ describe('SendEmailModal — API error path', () => {
     );
 
     renderModal({ clientEmail: 'client@example.com' });
-
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
     await waitFor(() => {
@@ -155,20 +251,19 @@ describe('SendEmailModal — API error path', () => {
 
     // Modal heading still visible — modal has not closed
     expect(
-      screen.getByRole('heading', { name: /send invoice by email/i })
+      screen.getByRole('heading', { name: 'Send Invoice by Email' })
     ).toBeInTheDocument();
 
     expect(mockDispatch).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('shows a generic error message on a non-200 response without JSON body', async () => {
+  it('shows a generic status-based error on a non-200 response without JSON body', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('Bad Gateway', { status: 502 })
     );
 
     renderModal({ clientEmail: 'client@example.com' });
-
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
     await waitFor(() => {
@@ -176,5 +271,51 @@ describe('SendEmailModal — API error path', () => {
     });
 
     expect(onClose).not.toHaveBeenCalled();
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('shows an error message and keeps the modal open on a network failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+    renderModal({ clientEmail: 'client@example.com' });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole('heading', { name: 'Send Invoice by Email' })
+    ).toBeInTheDocument();
+
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows a graceful error when VITE_SUPABASE_FUNCTIONS_URL is undefined', async () => {
+    import.meta.env.VITE_SUPABASE_FUNCTIONS_URL = '';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    renderModal({ clientEmail: 'client@example.com' });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cancel button
+// ---------------------------------------------------------------------------
+
+describe('SendEmailModal — cancel', () => {
+  it('calls onClose when the Cancel button is clicked', () => {
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
