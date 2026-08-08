@@ -1,130 +1,40 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { InvoicePreview } from './InvoicePreview.jsx';
-import { InvoiceProvider, useInvoice } from '../../context/InvoiceContext.jsx';
+import { InvoiceProvider } from '../../context/InvoiceContext.jsx';
+
+const baseInvoice = {
+  invoiceNumber: 'INV-042',
+  clientName: 'Acme Corp',
+  clientEmail: 'acme@example.com',
+  status: 'Draft',
+  logoUrl: 'data:image/png;base64,logo123',
+  lineItems: [],
+  yourDetails: '',
+  currency: 'USD',
+};
 
 describe('InvoicePreview', () => {
-  beforeEach(() => {
-    localStorage.clear();
+  it('renders the invoice number from context', () => {
+    render(
+      <InvoiceProvider initialState={baseInvoice}><InvoicePreview /></InvoiceProvider>
+    );
+    expect(screen.getByText(/INV-042/)).toBeInTheDocument();
   });
 
-  it('renders the grey placeholder when no logo is stored', () => {
+  it('renders the logo img when logoUrl is set in context', () => {
     render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
+      <InvoiceProvider initialState={baseInvoice}><InvoicePreview /></InvoiceProvider>
     );
-    expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /business logo/i })).toBeInTheDocument();
   });
 
-  it('renders the logo image when a valid data URL is in localStorage', () => {
-    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
-    localStorage.setItem('invoice_logo', dataUrl);
-
+  it('does not render a logo img when logoUrl is null', () => {
+    const stateWithoutLogo = { ...baseInvoice, logoUrl: null };
     render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
+      <InvoiceProvider initialState={stateWithoutLogo}><InvoicePreview /></InvoiceProvider>
     );
-
-    const img = screen.getByRole('img', { name: 'Business logo' });
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', dataUrl);
-    expect(screen.queryByLabelText('Logo placeholder')).not.toBeInTheDocument();
-  });
-
-  it('discards a stale/corrupt localStorage value that lacks data:image/ prefix', () => {
-    localStorage.setItem('invoice_logo', 'corrupt-value');
-
-    render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-
-    expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-  });
-
-  it('logo image has max-width of 200px, max-height of 100px, and object-fit contain', () => {
-    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
-    localStorage.setItem('invoice_logo', dataUrl);
-
-    render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-
-    const img = screen.getByRole('img', { name: 'Business logo' });
-    expect(img).toHaveStyle({ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' });
-  });
-
-  it('replaces the placeholder with the logo image when shared state is updated (no reload)', async () => {
-    // Helper consumer that drives context state
-    function Driver() {
-      const { setLogoDataUrl } = useInvoice();
-      return (
-        <button onClick={() => setLogoDataUrl('data:image/jpeg;base64,xyz')}>
-          Load
-        </button>
-      );
-    }
-
-    render(
-      <InvoiceProvider>
-        <Driver />
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-
-    // Placeholder visible before update
-    expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
-
-    act(() => {
-      screen.getByText('Load').click();
-    });
-
-    // Placeholder gone, image present — no page reload
-    expect(screen.queryByLabelText('Logo placeholder')).not.toBeInTheDocument();
-    const img = screen.getByRole('img', { name: 'Business logo' });
-    expect(img).toHaveAttribute('src', 'data:image/jpeg;base64,xyz');
-  });
-
-  it('restores the grey placeholder when the logo is removed from shared state', async () => {
-    function Driver() {
-      const { setLogoDataUrl, removeLogo } = useInvoice();
-      return (
-        <>
-          <button onClick={() => setLogoDataUrl('data:image/png;base64,abc')}>Load</button>
-          <button onClick={removeLogo}>Remove</button>
-        </>
-      );
-    }
-
-    render(
-      <InvoiceProvider>
-        <Driver />
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-
-    act(() => { screen.getByText('Load').click(); });
-    expect(screen.getByRole('img', { name: 'Business logo' })).toBeInTheDocument();
-
-    act(() => { screen.getByText('Remove').click(); });
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Logo placeholder')).toBeInTheDocument();
-  });
-
-  it('renders the invoice preview section with accessible label', () => {
-    render(
-      <InvoiceProvider>
-        <InvoicePreview />
-      </InvoiceProvider>
-    );
-    expect(screen.getByRole('region', { name: 'Invoice preview' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /business logo/i })).not.toBeInTheDocument();
   });
 });

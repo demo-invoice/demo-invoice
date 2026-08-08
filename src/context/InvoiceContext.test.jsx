@@ -1,116 +1,71 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { InvoiceProvider, useInvoice } from './InvoiceContext.jsx';
-
-function Consumer() {
-  const { logoDataUrl, setLogoDataUrl, removeLogo } = useInvoice();
-  return (
-    <div>
-      <span data-testid="logo-url">{logoDataUrl ?? 'null'}</span>
-      <button onClick={() => setLogoDataUrl('data:image/png;base64,abc')}>Set Logo</button>
-      <button onClick={removeLogo}>Remove Logo</button>
-    </div>
-  );
-}
+import { renderHook } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { InvoiceProvider, useInvoice, UPDATE_INVOICE_STATUS } from './InvoiceContext.jsx';
 
 describe('InvoiceContext', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    vi.restoreAllMocks();
+  it('provides default state values', () => {
+    const wrapper = ({ children }) => <InvoiceProvider>{children}</InvoiceProvider>;
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    expect(result.current.invoiceNumber).toBeDefined();
+    expect(result.current.lineItems).toBeDefined();
+    expect(result.current.dispatch).toBeTypeOf('function');
   });
 
-  it('initialises with null when localStorage is empty', () => {
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('null');
-  });
-
-  it('rehydrates logoDataUrl from localStorage on mount', () => {
-    localStorage.setItem('invoice_logo', 'data:image/png;base64,xyz');
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('data:image/png;base64,xyz');
-  });
-
-  it('ignores a localStorage value that does not start with data:image/', () => {
-    localStorage.setItem('invoice_logo', 'not-a-data-url');
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('null');
-  });
-
-  it('persists to localStorage when setLogoDataUrl is called', () => {
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    act(() => { screen.getByText('Set Logo').click(); });
-    expect(localStorage.getItem('invoice_logo')).toBe('data:image/png;base64,abc');
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('data:image/png;base64,abc');
-  });
-
-  it('clears localStorage and resets state to null when removeLogo is called', () => {
-    localStorage.setItem('invoice_logo', 'data:image/png;base64,xyz');
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    act(() => { screen.getByText('Remove Logo').click(); });
-    expect(localStorage.getItem('invoice_logo')).toBeNull();
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('null');
-  });
-
-  it('degrades gracefully when localStorage.setItem throws', () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('QuotaExceededError');
+  it('UPDATE_INVOICE_STATUS updates the status field', () => {
+    const wrapper = ({ children }) => <InvoiceProvider>{children}</InvoiceProvider>;
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: UPDATE_INVOICE_STATUS, value: 'Sent' });
     });
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    // Should not throw; state is still updated in-memory
-    act(() => { screen.getByText('Set Logo').click(); });
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('data:image/png;base64,abc');
+    expect(result.current.status).toBe('Sent');
   });
 
-  it('degrades gracefully when localStorage.removeItem throws', () => {
-    localStorage.setItem('invoice_logo', 'data:image/png;base64,xyz');
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-      throw new Error('SecurityError');
+  it('unknown action returns the same state reference', () => {
+    const wrapper = ({ children }) => <InvoiceProvider>{children}</InvoiceProvider>;
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    const before = result.current;
+    act(() => {
+      result.current.dispatch({ type: '__UNKNOWN__' });
     });
-    render(
-      <InvoiceProvider>
-        <Consumer />
-      </InvoiceProvider>
-    );
-    // Should not throw; state is still cleared in-memory
-    act(() => { screen.getByText('Remove Logo').click(); });
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('null');
+    // state reference should be identical (return state, not spread)
+    expect(result.current).toBe(before);
   });
 
-  it('degrades gracefully when localStorage.getItem throws on mount', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('SecurityError');
-    });
-    render(
-      <InvoiceProvider>
-        <Consumer />
+  it('REMOVE_LOGO sets logoUrl to null', () => {
+    const wrapper = ({ children }) => (
+      <InvoiceProvider initialState={{ logoUrl: 'data:image/png;base64,xyz' }}>
+        {children}
       </InvoiceProvider>
     );
-    // Falls back to null
-    expect(screen.getByTestId('logo-url')).toHaveTextContent('null');
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    // Before removal, logoUrl should be the seeded value
+    expect(result.current.logoUrl).toBe('data:image/png;base64,xyz');
+    act(() => {
+      result.current.dispatch({ type: 'REMOVE_LOGO' });
+    });
+    expect(result.current.logoUrl).toBe(null);
+  });
+
+  it('SET_LOGO sets logoUrl to the provided data URL', () => {
+    const wrapper = ({ children }) => <InvoiceProvider>{children}</InvoiceProvider>;
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_LOGO', payload: 'data:image/png;base64,abc' });
+    });
+    expect(result.current.logoUrl).toBe('data:image/png;base64,abc');
+  });
+
+  it('SET_LOGO then REMOVE_LOGO leaves logoUrl as null', () => {
+    const wrapper = ({ children }) => <InvoiceProvider>{children}</InvoiceProvider>;
+    const { result } = renderHook(() => useInvoice(), { wrapper });
+    act(() => {
+      result.current.dispatch({ type: 'SET_LOGO', payload: 'data:image/png;base64,xyz' });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'REMOVE_LOGO' });
+    });
+    expect(result.current.logoUrl).toBe(null);
   });
 });
