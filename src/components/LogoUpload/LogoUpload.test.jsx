@@ -185,7 +185,7 @@ describe('LogoUpload', () => {
     expect(mockReader.readAsDataURL).toHaveBeenCalledWith(file);
   });
 
-  it('shows a generic error when FileReader fires onerror', async () => {
+  it('shows "Could not read file. Please try again." when FileReader fires onerror', async () => {
     const mockReader = {
       readAsDataURL: vi.fn(),
       onload: null,
@@ -199,7 +199,7 @@ describe('LogoUpload', () => {
     const file = makeFile('photo.jpg', 'image/jpeg', 100);
     fireEvent.change(getFileInput(), { target: { files: [file] } });
 
-    // The source code assigns reader.onerror after fireEvent.change;
+    // reader.onerror is assigned by the component after fireEvent.change;
     // invoke it now to simulate a FileReader read failure.
     if (typeof mockReader.onerror === 'function') {
       mockReader.onerror();
@@ -231,7 +231,7 @@ describe('LogoUpload', () => {
     vi.spyOn(globalThis, 'FileReader').mockImplementation(() => mockReader);
 
     renderWithContext(<LogoUpload />);
-    // First: trigger an error
+    // First: trigger a validation error
     const badFile = makeFile('doc.pdf', 'application/pdf', 100);
     fireEvent.change(getFileInput(), { target: { files: [badFile] } });
     expect(screen.getByRole('alert')).toBeInTheDocument();

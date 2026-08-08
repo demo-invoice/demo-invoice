@@ -20,14 +20,12 @@ const baseInvoice = {
 /**
  * Render InvoicePreview wrapped in a real InvoiceContext.Provider seeded with
  * the given state, so the component reads from useInvoice() as it actually does.
- * @param {object} invoiceState - Partial overrides merged onto baseInvoice.
  */
 function renderWithInvoice(invoiceState = {}) {
   const value = {
     ...baseInvoice,
     ...invoiceState,
     dispatch: vi.fn(),
-    // Provide no-op helpers in case the component calls them
     setLogoDataUrl: vi.fn(),
     removeLogo: vi.fn(),
   };
@@ -48,7 +46,6 @@ describe('InvoicePreview', () => {
   it('renders a logo img when logoDataUrl is set to a data URL', () => {
     const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
     renderWithInvoice({ logoDataUrl: dataUrl });
-    // The img element must be present in the document
     const img = screen.getByRole('img', { name: /logo/i });
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', dataUrl);
@@ -136,7 +133,7 @@ describe('InvoicePreview', () => {
     expect(img).toHaveStyle({ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' });
   });
 
-  it('replaces the placeholder with the logo image when shared state is updated (no reload)', async () => {
+  it('replaces the placeholder with the logo image when shared state is updated (no reload)', () => {
     function Driver() {
       const { setLogoDataUrl } = useInvoice();
       return (
@@ -164,7 +161,7 @@ describe('InvoicePreview', () => {
     expect(img).toHaveAttribute('src', 'data:image/jpeg;base64,xyz');
   });
 
-  it('restores the grey placeholder when the logo is removed from shared state', async () => {
+  it('restores the grey placeholder when the logo is removed from shared state', () => {
     function Driver() {
       const { setLogoDataUrl, removeLogo } = useInvoice();
       return (
