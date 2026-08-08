@@ -1,35 +1,28 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useReducer, useMemo } from 'react';
+
+// ---------------------------------------------------------------------------
+// Action type constants
+// ---------------------------------------------------------------------------
+export const UPDATE_INVOICE_STATUS = 'UPDATE_INVOICE_STATUS';
+export const UPDATE_FIELD = 'UPDATE_FIELD';
 
 const STORAGE_KEY = 'invoice_logo';
 
-/**
- * Safely read a value from localStorage.
- * Returns null if localStorage is unavailable or the stored value is invalid.
- * @returns {string|null}
- */
+// ---------------------------------------------------------------------------
+// localStorage helpers
+// ---------------------------------------------------------------------------
+
+/** @returns {string|null} */
 function readLogoFromStorage() {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    if (value && value.startsWith('data:image/')) {
-      return value;
-    }
-    return null;
+    return value && value.startsWith('data:image/') ? value : null;
   } catch {
     return null;
   }
 }
 
-/**
- * Safely write a value to localStorage.
- * Silently swallows errors (e.g. private browsing quota).
- * @param {string} dataUrl
- */
+/** @param {string} dataUrl */
 function writeLogoToStorage(dataUrl) {
   try {
     localStorage.setItem(STORAGE_KEY, dataUrl);
@@ -38,9 +31,6 @@ function writeLogoToStorage(dataUrl) {
   }
 }
 
-/**
- * Safely remove the logo entry from localStorage.
- */
 function removeLogoFromStorage() {
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -49,41 +39,108 @@ function removeLogoFromStorage() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Initial state
+// ---------------------------------------------------------------------------
+
 /**
- * @typedef {Object} InvoiceContextValue
- * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
- * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
- * @property {() => void} removeLogo - Clear the logo from state and storage.
+ * @typedef {Object} InvoiceState
+ * @property {string} invoiceNumber
+ * @property {string} clientName
+ * @property {string} clientEmail
+ * @property {Array<{description: string, quantity: number, unitPrice: number}>} lineItems
+ * @property {number} subtotal
+ * @property {number} tax
+ * @property {number} total
+ * @property {string} invoiceDate
+ * @property {string} dueDate
+ * @property {string} status
+ * @property {string|null} logoDataUrl
+ */
+
+/** @returns {InvoiceState} */
+function buildInitialState() {
+  return {
+    invoiceNumber: '',
+    clientName: '',
+    clientEmail: '',
+    lineItems: [],
+    subtotal: 0,
+    tax: 0,
+    total: 0,
+    invoiceDate: '',
+    dueDate: '',
+    status: '',
+    logoDataUrl: readLogoFromStorage(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reducer
+// ---------------------------------------------------------------------------
+
+/**
+ * Invoice reducer.
+ * @param {InvoiceState} state
+ * @param {{ type: string, field?: string, value?: unknown }} action
+ * @returns {InvoiceState}
+ */
+function invoiceReducer(state, action) {
+  switch (action.type) {
+    case UPDATE_FIELD: {
+      const { field, value } = action;
+      if (field === 'lineItems' && !Array.isArray(value)) {
+        return state;
+      }
+      if (field === 'logoDataUrl') {
+        if (value) writeLogoToStorage(/** @type {string} */ (value));
+        else removeLogoFromStorage();
+      }
+      return { ...state, [field]: value };
+    }
+    case UPDATE_INVOICE_STATUS:
+      return { ...state, status: action.value };
+    default:
+      // Must return the exact same reference for unknown actions.
+      return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+
+/**
+ * @typedef {InvoiceState & { dispatch: React.Dispatch<{type: string, field?: string, value?: unknown}> }} InvoiceContextValue
  */
 
 /** @type {React.Context<InvoiceContextValue>} */
 const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
+  invoiceNumber: '',
+  clientName: '',
+  clientEmail: '',
+  lineItems: [],
+  subtotal: 0,
+  tax: 0,
+  total: 0,
+  invoiceDate: '',
+  dueDate: '',
+  status: '',
   logoDataUrl: null,
-  setLogoDataUrl: () => {},
-  removeLogo: () => {},
+  dispatch: () => {},
 }));
 
 /**
  * Provides shared invoice state to the component tree.
- * Rehydrates logoDataUrl from localStorage on first render.
  * @param {{ children: React.ReactNode }} props
  */
 export function InvoiceProvider({ children }) {
-  const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
-
-  const setLogoDataUrl = useCallback((dataUrl) => {
-    writeLogoToStorage(dataUrl);
-    setLogoState(dataUrl);
-  }, []);
-
-  const removeLogo = useCallback(() => {
-    removeLogoFromStorage();
-    setLogoState(null);
-  }, []);
+  const [state, dispatch] = useReducer(invoiceReducer, undefined, buildInitialState);
 
   const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
+    () => ({ ...state, dispatch }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state]
   );
 
   return (
