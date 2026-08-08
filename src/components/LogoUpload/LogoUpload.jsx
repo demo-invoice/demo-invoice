@@ -1,134 +1,95 @@
-import React, { useRef, useState, useEffect, useId } from 'react';
-import { useInvoice } from '../../context/InvoiceContext.jsx';
+import React, { useRef, useState } from 'react';
+import { useInvoice, UPDATE_FIELD } from '../../context/InvoiceContext.jsx';
 import './LogoUpload.css';
 
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-const ALLOWED_MIME = new Set(['image/png', 'image/jpeg', 'image/svg+xml']);
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
+const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 /**
- * Determine whether a File is an accepted image type.
- * Falls back to extension check for SVG because some browsers report an empty
- * MIME type for .svg files.
- * @param {File} file
- * @returns {boolean}
- */
-function isAllowedType(file) {
-  if (ALLOWED_MIME.has(file.type)) return true;
-  // Extension fallback for SVG edge-case.
-  return file.name.toLowerCase().endsWith('.svg');
-}
-
-/**
- * LogoUpload component.
- * Renders a hidden file input linked to a visible label button.
- * Validates MIME type and file size before invoking FileReader.
- * Displays accessible inline error messages.
+ * Allows the user to upload, preview, and remove a logo.
+ * Reads logoDataUrl from InvoiceContext and dispatches UPDATE_FIELD to update it.
  */
 export function LogoUpload() {
-  const { logoDataUrl, setLogoDataUrl, removeLogo } = useInvoice();
+  const { logoDataUrl, dispatch } = useInvoice();
   const [error, setError] = useState('');
-  const inputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
-  const readerRef = useRef(/** @type {FileReader|null} */ (null));
-  const cancelledRef = useRef(false);
+  const inputRef = useRef(null);
 
-  const inputId = useId();
-  const errorId = useId();
+  function handleFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
 
-  // Mark as cancelled on unmount so a pending FileReader result is ignored.
-  useEffect(() => {
-    cancelledRef.current = false;
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, []);
-
-  /**
-   * Handle file input change event.
-   * @param {React.ChangeEvent<HTMLInputElement>} e
-   */
-  function handleChange(e) {
-    const files = e.target.files;
-    if (!files || files.length === 0) return; // picker cancelled
-
-    const file = files[0];
-
-    if (!isAllowedType(file)) {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
       setError('Invalid file type. Please upload a PNG, JPEG, or SVG image.');
+      // Reset input so the same file can be re-selected after fixing the error
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
 
-    if (file.size > MAX_BYTES) {
+    if (file.size > MAX_SIZE_BYTES) {
       setError('File is too large. Maximum size is 2 MB.');
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
 
     setError('');
-
-    // Abort any in-flight reader before starting a new one.
-    if (readerRef.current) {
-      readerRef.current.abort();
-    }
-
     const reader = new FileReader();
-    readerRef.current = reader;
-
-    reader.onload = () => {
-      if (cancelledRef.current) return;
-      const result = reader.result;
-      if (typeof result === 'string') {
-        setLogoDataUrl(result);
-      }
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      dispatch({ type: UPDATE_FIELD, field: 'logoDataUrl', value: dataUrl });
     };
-
-    reader.onerror = () => {
-      if (cancelledRef.current) return;
-      setError('Could not read file. Please try again.');
-    };
-
     reader.readAsDataURL(file);
   }
 
   function handleRemove() {
-    removeLogo();
+    dispatch({ type: UPDATE_FIELD, field: 'logoDataUrl', value: null });
     setError('');
-    // Reset the input so the same file can be re-selected.
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
+    if (inputRef.current) inputRef.current.value = '';
   }
 
   return (
     <div className="logo-upload">
-      <input
-        ref={inputRef}
-        id={inputId}
-        type="file"
-        accept="image/png,image/jpeg,image/svg+xml,.svg"
-        className="logo-upload__input"
-        onChange={handleChange}
-        aria-describedby={errorId}
-      />
-      <label htmlFor={inputId} className="logo-upload__button">
-        Upload Logo
-      </label>
-
-      {logoDataUrl && (
-        <button
-          type="button"
-          className="logo-upload__remove"
-          onClick={handleRemove}
-        >
-          Remove Logo
-        </button>
+      {logoDataUrl ? (
+        <div className="logo-upload__preview">
+          <img
+            src={logoDataUrl}
+            alt="Invoice logo preview"
+            className="logo-upload__image"
+          />
+          <button
+            type="button"
+            className="logo-upload__remove-btn"
+            onClick={handleRemove}
+            aria-label="Remove logo"
+          >
+            Remove Logo
+          </button>
+        </div>
+      ) : (
+        <div className="logo-upload__input-wrapper">
+          <label htmlFor="logo-upload-input" className="logo-upload__label">
+            Upload Logo
+          </label>
+          <input
+            id="logo-upload-input"
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml"
+            className="logo-upload__input"
+            onChange={handleFileChange}
+            aria-describedby={error ? 'logo-upload-error' : undefined}
+          />
+        </div>
       )}
-
-      <div id={errorId}>
-        {error && (
-          <span role="alert" aria-live="assertive" className="logo-upload__error">
-            {error}
-          </span>
-        )}
-      </div>
+      {error && (
+        <span
+          id="logo-upload-error"
+          className="logo-upload__error"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </span>
+      )}
     </div>
   );
 }
