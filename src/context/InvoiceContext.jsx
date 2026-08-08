@@ -1,90 +1,62 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useReducer } from 'react';
 
-const STORAGE_KEY = 'invoice_logo';
+export const InvoiceContext = createContext(
+  /** @type {any} */ (null)
+);
 
-/**
- * Safely read a value from localStorage.
- * Returns null if localStorage is unavailable or the stored value is invalid.
- * @returns {string|null}
- */
-function readLogoFromStorage() {
-  try {
-    const value = localStorage.getItem(STORAGE_KEY);
-    if (value && value.startsWith('data:image/')) {
-      return value;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Safely write a value to localStorage.
- * Silently swallows errors (e.g. private browsing quota).
- * @param {string} dataUrl
- */
-function writeLogoToStorage(dataUrl) {
-  try {
-    localStorage.setItem(STORAGE_KEY, dataUrl);
-  } catch {
-    // Degrade gracefully — feature still works in-memory.
-  }
-}
-
-/**
- * Safely remove the logo entry from localStorage.
- */
-function removeLogoFromStorage() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Degrade gracefully.
-  }
-}
-
-/**
- * @typedef {Object} InvoiceContextValue
- * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
- * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
- * @property {() => void} removeLogo - Clear the logo from state and storage.
- */
-
-/** @type {React.Context<InvoiceContextValue>} */
-const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
+const initialState = {
+  lineItems: [],
+  clientName: '',
+  clientEmail: '',
+  invoiceNumber: '',
+  status: 'Draft',
   logoDataUrl: null,
-  setLogoDataUrl: () => {},
-  removeLogo: () => {},
-}));
+  yourDetails: '',
+  currency: 'USD',
+};
 
-/**
- * Provides shared invoice state to the component tree.
- * Rehydrates logoDataUrl from localStorage on first render.
- * @param {{ children: React.ReactNode }} props
- */
+export const UPDATE_INVOICE_STATUS = 'UPDATE_INVOICE_STATUS';
+
+function invoiceReducer(state, action) {
+  switch (action.type) {
+    case 'SET_LOGO_DATA_URL':
+      return { ...state, logoDataUrl: action.payload };
+    case 'REMOVE_LOGO':
+      return { ...state, logoDataUrl: null };
+    case 'SET_CLIENT_NAME':
+      return { ...state, clientName: action.payload };
+    case 'SET_CLIENT_EMAIL':
+      return { ...state, clientEmail: action.payload };
+    case 'SET_INVOICE_NUMBER':
+      return { ...state, invoiceNumber: action.payload };
+    case 'SET_LINE_ITEMS':
+      return { ...state, lineItems: action.payload };
+    case 'SET_YOUR_DETAILS':
+      return { ...state, yourDetails: action.payload };
+    case 'SET_CURRENCY':
+      return { ...state, currency: action.payload };
+    case UPDATE_INVOICE_STATUS:
+      return { ...state, status: action.value };
+    default:
+      return state;
+  }
+}
+
 export function InvoiceProvider({ children }) {
-  const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
+  const [state, dispatch] = useReducer(invoiceReducer, initialState);
 
-  const setLogoDataUrl = useCallback((dataUrl) => {
-    writeLogoToStorage(dataUrl);
-    setLogoState(dataUrl);
-  }, []);
-
-  const removeLogo = useCallback(() => {
-    removeLogoFromStorage();
-    setLogoState(null);
-  }, []);
-
-  const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
-  );
+  const value = {
+    ...state,
+    dispatch,
+    setLogoDataUrl: (url) => dispatch({ type: 'SET_LOGO_DATA_URL', payload: url }),
+    removeLogo: () => dispatch({ type: 'REMOVE_LOGO' }),
+    setClientName: (name) => dispatch({ type: 'SET_CLIENT_NAME', payload: name }),
+    setClientEmail: (email) => dispatch({ type: 'SET_CLIENT_EMAIL', payload: email }),
+    setInvoiceNumber: (num) => dispatch({ type: 'SET_INVOICE_NUMBER', payload: num }),
+    setLineItems: (items) => dispatch({ type: 'SET_LINE_ITEMS', payload: items }),
+    setYourDetails: (details) => dispatch({ type: 'SET_YOUR_DETAILS', payload: details }),
+    setCurrency: (currency) => dispatch({ type: 'SET_CURRENCY', payload: currency }),
+  };
 
   return (
     <InvoiceContext.Provider value={value}>
@@ -93,11 +65,10 @@ export function InvoiceProvider({ children }) {
   );
 }
 
-/**
- * Consume the InvoiceContext.
- * Must be used within an InvoiceProvider.
- * @returns {InvoiceContextValue}
- */
 export function useInvoice() {
-  return useContext(InvoiceContext);
+  const context = useContext(InvoiceContext);
+  if (!context) {
+    throw new Error('useInvoice must be used within an InvoiceProvider');
+  }
+  return context;
 }
