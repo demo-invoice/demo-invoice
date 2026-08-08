@@ -2,11 +2,18 @@ import React, {
   createContext,
   useContext,
   useState,
+  useReducer,
   useCallback,
   useMemo,
 } from 'react';
 
 const STORAGE_KEY = 'invoice_logo';
+
+/**
+ * Action type for updating the invoice sent/status field.
+ * @type {string}
+ */
+export const UPDATE_INVOICE_STATUS = 'UPDATE_INVOICE_STATUS';
 
 /**
  * Safely read a value from localStorage.
@@ -50,10 +57,35 @@ function removeLogoFromStorage() {
 }
 
 /**
+ * @typedef {{ status: string }} InvoiceState
+ */
+
+/** @type {InvoiceState} */
+const initialInvoiceState = { status: 'Draft' };
+
+/**
+ * Reducer for invoice-level state (e.g. send status).
+ * Default branch returns the exact same state reference per codebase convention.
+ * @param {InvoiceState} state
+ * @param {{ type: string, payload?: unknown }} action
+ * @returns {InvoiceState}
+ */
+function invoiceReducer(state, action) {
+  switch (action.type) {
+    case UPDATE_INVOICE_STATUS:
+      return { ...state, status: /** @type {string} */ (action.payload) };
+    default:
+      return state;
+  }
+}
+
+/**
  * @typedef {Object} InvoiceContextValue
  * @property {string|null} logoDataUrl - Base64 data URL of the uploaded logo, or null.
  * @property {(dataUrl: string) => void} setLogoDataUrl - Persist a new logo data URL.
  * @property {() => void} removeLogo - Clear the logo from state and storage.
+ * @property {string} status - Current invoice status (e.g. 'Draft', 'Sent').
+ * @property {React.Dispatch<{ type: string, payload?: unknown }>} dispatch - Reducer dispatch.
  */
 
 /** @type {React.Context<InvoiceContextValue>} */
@@ -61,6 +93,8 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
   logoDataUrl: null,
   setLogoDataUrl: () => {},
   removeLogo: () => {},
+  status: 'Draft',
+  dispatch: () => {},
 }));
 
 /**
@@ -70,6 +104,7 @@ const InvoiceContext = createContext(/** @type {InvoiceContextValue} */ ({
  */
 export function InvoiceProvider({ children }) {
   const [logoDataUrl, setLogoState] = useState(() => readLogoFromStorage());
+  const [invoiceState, dispatch] = useReducer(invoiceReducer, initialInvoiceState);
 
   const setLogoDataUrl = useCallback((dataUrl) => {
     writeLogoToStorage(dataUrl);
@@ -82,8 +117,14 @@ export function InvoiceProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ logoDataUrl, setLogoDataUrl, removeLogo }),
-    [logoDataUrl, setLogoDataUrl, removeLogo]
+    () => ({
+      logoDataUrl,
+      setLogoDataUrl,
+      removeLogo,
+      status: invoiceState.status,
+      dispatch,
+    }),
+    [logoDataUrl, setLogoDataUrl, removeLogo, invoiceState.status, dispatch]
   );
 
   return (
